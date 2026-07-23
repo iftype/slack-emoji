@@ -112,17 +112,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 🌐 채널 인원 전체 소환 버튼
+  // 🌐 채널 인원 전체 소환 버튼 (유저 ID 기준 중복 100% 완전 제거!)
   btnSummonChannelAll.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !currentAnalyzedMessage.channel) {
       alert('슬랙 링크를 먼저 분석해주시거나 채널 정보가 필요합니다!');
       return;
     }
-    const allChannelUsers = [
-      ...currentUnreactedUsers,
-      ...(activeEmojiGroup ? activeEmojiGroup.users : [])
-    ];
-    const updated = await SlackApi.saveFeedbackGroup(slackUrlInput.value.trim(), '', '🌐 채널 전체 인원', allChannelUsers);
+    
+    // 🚨 UNIQUE Map으로 유저 ID 중복 원천 차단!
+    const uniqueUserMap = new Map();
+    
+    (currentUnreactedUsers || []).forEach(u => uniqueUserMap.set(u.id, u));
+    
+    if (currentAnalyzedMessage.reactions) {
+      currentAnalyzedMessage.reactions.forEach(r => {
+        r.users.forEach(u => uniqueUserMap.set(u.id, u));
+      });
+    }
+
+    const uniqueChannelUsers = Array.from(uniqueUserMap.values());
+    if (uniqueChannelUsers.length === 0) {
+      alert('채널 인원을 불러올 수 없습니다.');
+      return;
+    }
+
+    const updated = await SlackApi.saveFeedbackGroup(
+      slackUrlInput.value.trim(), 
+      '', 
+      `🌐 채널 전체 (${uniqueChannelUsers.length}명)`, 
+      uniqueChannelUsers
+    );
     renderFeedbackList(updated);
     sliderWrapper.style.transform = 'translateX(-33.333%)';
     bottomSheet.classList.remove('collapsed');
@@ -249,6 +268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
 
+  // 🚨 이미 당첨되어 선출된 유저(u.done === true)를 100% 완전 제외한 유니크 활성 명단 반환!
   function getUniqueActiveRunners() {
     const runnerMap = new Map();
     currentFeedbacksData.forEach(f => {
@@ -278,14 +298,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentFeedbacksData.forEach(f => {
       const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
       html += `
-        <div class="feedback-group-item" style="background:#f5f5f7;border:1px solid rgba(0,0,0,0.06);border-radius:12px;padding:10px;margin-bottom:8px;">
+        <div class="feedback-group-item" style="background:#f8f9fa;border:1px solid #e4e5e7;border-radius:10px;padding:10px;margin-bottom:8px;">
           <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
             <span>${emojiBadge} (${f.users.length}명)</span>
             <button class="btn-danger-xs" data-link="${f.messageLink}" data-emoji="${f.emoji}">삭제</button>
           </div>
           <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
             ${f.users.map(u => `
-              <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid rgba(0,0,0,0.05);">${u.real_name || u.name}</span>
+              <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${u.real_name || u.name}</span>
             `).join('')}
           </div>
         </div>
@@ -304,13 +324,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // 🚨 남아있는 순수 미당첨 유저(runners)로만 룰렛 카드 릴을 즉시 깨끗하게 갱신!
   function renderRoulettePreview(runners) {
     rouletteReelContainer.innerHTML = '';
     if (!runners || runners.length === 0) {
       rouletteReelContainer.innerHTML = `
         <div class="picker-card-2d empty-card">
           <span class="card-avatar-text">🌱</span>
-          <span class="card-name">명단을 소환해 보세요!</span>
+          <span class="card-name">추첨이 완료되었습니다!</span>
         </div>
       `;
       return;
@@ -352,7 +373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   function runSingleLotterySpin() {
-    const runners = getUniqueActiveRunners();
+    const runners = getUniqueActiveRunners(); // 🚨 아직 안 뽑힌 순수 남아있는 유저만 반환!
     if (runners.length === 0) {
       alert('추첨 대상 유저가 없습니다!');
       return;
@@ -366,6 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       LotteryEngine.pickSingleWinner(runners, elements, (winner) => {
         if (winner) {
           pickedWinners.push(winner);
+          // 🚨 당첨된 유저를 done = true 로 확고히 기록하여 다음 룰렛 릴에서 100% 원천 제거!
           currentFeedbacksData.forEach(f => {
             f.users.forEach(u => {
               if (u.id === winner.id) u.done = true;
@@ -373,6 +395,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
           renderFeedbackList(currentFeedbacksData);
         }
+        // 🚨 룰렛 릴 카드 렌더링을 남아있는 인원으로 즉시 깨끗하게 갱신!
+        renderRoulettePreview(getUniqueActiveRunners());
         showFinalResultView('podium', pickedWinners);
       });
     } else {
@@ -426,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 📋 팀 구성 명단 사용자 지정 포맷 복사 핸들러 (• 1팀: 찰리, 클라우디...)
+  // 📋 팀 구성 명단 복사 핸들러 (• 1팀: 찰리, 클라우디...)
   btnCopyResultFormatted.addEventListener('click', () => {
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     if (mode === 'group' && lastGroupResult) {
