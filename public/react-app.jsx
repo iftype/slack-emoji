@@ -39,7 +39,7 @@ function parseTextEmojis(text, customCache = {}) {
 // 2. API Communication Service
 const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:3001'
-  : 'https://iftype.store/slack/api';
+  : 'https://iftype.store/slack';
 
 const SlackApi = {
   async fetchCustomEmojis() {
