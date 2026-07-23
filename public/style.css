@@ -64,12 +64,23 @@ body {
   flex-direction: column;
 }
 
-@media (max-width: 480px) {
+/* 📲 모바일 브라우저 접속 시 (600px 이하) 목업 프레임 제거 & 100% Full Screen 화면 꽉 차게 렌더링 */
+@media (max-width: 600px) {
+  html, body {
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden;
+    background-color: #ffffff !important;
+  }
+
   .app-container, #root {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
-    box-shadow: none;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 }
 
