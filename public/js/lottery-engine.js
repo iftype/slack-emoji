@@ -64,24 +64,36 @@ const LotteryEngine = {
     const { rouletteReelContainer, commentaryText } = elements;
     commentaryText.textContent = `🎉 [${winner.real_name || winner.name}] 님 당첨!`;
 
-    // 🎯 요구사항 2: 당첨되어도 위아래 룰렛 카드들이 사라지지 않고 은은히 유지되어 자연스러운 연출!
-    const otherRunners = runners.filter(u => u.id !== winner.id);
-    const prevRunner = otherRunners[0] || winner;
-    const nextRunner = otherRunners[1] || winner;
+    // 🚨 당첨자(winner) 및 이미 추첨 완료된 유저(done)를 100% 원천 제외한 남아있는 순수 미당첨 유저만 필터링!
+    const activeRemaining = runners.filter(u => u.id !== winner.id && !u.done);
+    
+    // 미당첨 남아있는 유저들을 무작위 셔플!
+    const shuffledRemaining = [...activeRemaining].sort(() => Math.random() - 0.5);
 
-    rouletteReelContainer.innerHTML = `
+    const prevRunner = shuffledRemaining[0] || null;
+    const nextRunner = shuffledRemaining[1] || null;
+
+    let prevCardHtml = prevRunner ? `
       <div class="picker-card-2d" style="opacity:0.35;transform:scale(0.92);margin-bottom:2px;">
         <img src="${prevRunner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
         <span class="card-name">${prevRunner.real_name || prevRunner.name}</span>
       </div>
-      <div class="picker-card-2d winner-highlight" style="transform:scale(1.04);z-index:10;box-shadow:0 4px 16px rgba(0,196,113,0.3);">
-        <img src="${winner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-        <span class="card-name">🎉 ${winner.real_name || winner.name}</span>
-      </div>
+    ` : '';
+
+    let nextCardHtml = (nextRunner && nextRunner.id !== (prevRunner ? prevRunner.id : null)) ? `
       <div class="picker-card-2d" style="opacity:0.35;transform:scale(0.92);margin-top:2px;">
         <img src="${nextRunner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
         <span class="card-name">${nextRunner.real_name || nextRunner.name}</span>
       </div>
+    ` : '';
+
+    rouletteReelContainer.innerHTML = `
+      ${prevCardHtml}
+      <div class="picker-card-2d winner-highlight" style="transform:scale(1.04);z-index:10;box-shadow:0 4px 16px rgba(0,196,113,0.3);">
+        <img src="${winner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
+        <span class="card-name">🎉 ${winner.real_name || winner.name}</span>
+      </div>
+      ${nextCardHtml}
     `;
     rouletteReelContainer.style.transform = 'translateY(0px)';
 
