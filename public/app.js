@@ -1,57 +1,10 @@
-// 슬랙 대표 이모지 숏코드 -> 유니코드 매핑 딕셔너리
-const EMOJI_MAP = {
-  'thumbsup': '👍', '+1': '👍', 'thumbsdown': '👎', '-1': '👎',
-  'heart': '❤️', 'smile': '😄', 'check': '✅', 'white_check_mark': '✅',
-  'party_popper': '🎉', 'tada': '🎉', 'thinking_face': '🤔',
-  'eyes': '👀', 'fire': '🔥', 'sparkles': '✨', 'rocket': '🚀',
-  'pray': '🙏', 'raised_hands': '🙌', 'clap': '👏', 'sob': '😭',
-  'cry': '😢', 'joy': '😂', 'sweat_smile': '😅', 'rolling_on_the_floor_laughing': '🤣',
-  'heart_eyes': '😍', 'scream': '😱', 'poop': '💩', 'warning': '⚠️',
-  'lightbulb': '💡', '100': '💯',
-  'clinking_glasses': '🥂', 'beer': '🍺', 'pizza': '🍕', 'coffee': '☕',
-  'star': '⭐', 'star2': '🌟', 'sparkler': '🎇', 'balloon': '🎈',
-  'gift': '🎁', 'trophy': '🏆', 'first_place_medal': '🥇',
-  'x': '❌', 'heavy_check_mark': 'Heavy Check Mark', 'heavy_plus_sign': '➕',
-  'wave': '👋', 'ok_hand': '👌', 'v': '✌️', 'muscle': '💪', 'brain': '🧠',
-  'zero': '0️⃣', 'one': '1️⃣', 'two': '2️⃣', 'three': '3️⃣', 'four': '4️⃣',
-  'five': '5️⃣', 'six': '6️⃣', 'seven': '7️⃣', 'eight': '8️⃣', 'nine': '9️⃣',
-  'keycap_ten': '🔟', '1234': '🔢'
-};
-
-// API 서버 기본 경로 (GitHub Pages에서 오라클 서버로 호출)
-function getApiBase() {
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    return ''; // 로컬 개발: 같은 서버
-  }
-  return 'https://iftype.store/slack'; // 프로덕션: 오라클 서버
-}
-
-// 숏코드 이모지 치환기
-function parseTextEmojis(text, customEmojiMap = {}) {
-  if (!text) return '';
-  let cleanText = text.replace(/<(https?:\/\/[^>|]+)(\|[^>]+)?>/g, (match, url, label) => {
-    const textLabel = label ? label.slice(1) : url;
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="message-link">${textLabel}</a>`;
-  });
-  cleanText = cleanText.replace(/<@([A-Z0-9]+)>/g, '<span class="user-mention">@$1</span>');
-  
-  return cleanText.replace(/:([a-zA-Z0-9_+\-]+):/g, (match, code) => {
-    if (EMOJI_MAP[code]) return EMOJI_MAP[code];
-    if (customEmojiMap && customEmojiMap[code]) {
-      const imgUrl = customEmojiMap[code];
-      if (imgUrl.startsWith('alias:')) return match;
-      return `<img src="${imgUrl}" alt=":${code}:" class="text-custom-emoji" title=":${code}:" />`;
-    }
-    return match;
-  });
-}
+// Slack Meadow Main App Controller
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // DOM 엘리먼트 정의
+  // DOM Elements
   const loginScreen = document.getElementById('login-screen');
   const loginForm = document.getElementById('login-form');
   const loginTokenInput = document.getElementById('login-token');
-  const loginCookieGroup = document.getElementById('login-cookie-group');
   const loginCookieInput = document.getElementById('login-cookie');
 
   const mainScreen = document.getElementById('main-screen');
@@ -67,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const messageTime = document.getElementById('message-time');
   const messageText = document.getElementById('message-text');
 
-  // 탭 제어
+  // Tabs
   const tabBtnEmojis = document.getElementById('tab-btn-emojis');
   const tabBtnUnreacted = document.getElementById('tab-btn-unreacted');
   const tabContentEmojis = document.getElementById('tab-content-emojis');
@@ -84,18 +37,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const detailUserList = document.getElementById('detail-user-list');
   const addToFeedbackBtn = document.getElementById('add-to-feedback-btn');
 
-  // 유저별 분석
   const btnToggleUserAnalysis = document.getElementById('btn-toggle-user-analysis');
   const userAnalysisPanel = document.getElementById('user-analysis-panel');
   const analysisTotalCount = document.getElementById('analysis-total-count');
   const btnCopySpacedNames = document.getElementById('btn-copy-spaced-names');
   const analysisUserList = document.getElementById('analysis-user-list');
 
-  // 모바일 바텀 시트
   const bottomSheet = document.getElementById('bottom-sheet');
-  const bottomSheetHandle = document.getElementById('bottom-sheet-handle');
-
-  // 🎰 2D 추첨 무대 & 조짜기
   const rouletteStage = document.getElementById('roulette-stage');
   const rouletteReelContainer = document.getElementById('roulette-reel-container');
   const groupDealerStage = document.getElementById('group-dealer-stage');
@@ -106,7 +54,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const commentaryText = document.getElementById('commentary-text');
   const btnSkipRace = document.getElementById('btn-skip-race');
 
-  // 결과창
   const rankingListView = document.getElementById('ranking-list-view');
   const groupRankingView = document.getElementById('group-ranking-view');
   const rankingConfirmBtn = document.getElementById('ranking-confirm-btn');
@@ -124,54 +71,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sliderWrapper = document.getElementById('slider-wrapper');
   const btnPrevSlide = document.getElementById('btn-prev-slide');
 
-  // 전역 데이터 상태
+  // App State
   let currentAnalyzedMessage = null;
   let activeEmojiGroup = null;
   let currentFeedbacksData = [];
   let customEmojiCache = {};
   let currentUnreactedUsers = [];
 
-  // 🎰 추첨 애니메이션 제어 변수
-  let isRolling = false;
-  let rollAnimTimer = null;
-  let reelY = 0;
-
-  /* ====================================================
-     1. 초기화 및 세션 연결 (서버 토큰 기본 사용)
-     ==================================================== */
-  loadMainMeadow('server-managed', '');
+  // Init Main Screen
+  loadMainMeadow();
 
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const token = loginTokenInput.value.trim();
-    const cookie = loginCookieInput.value.trim();
-    loadMainMeadow(token, cookie);
+    loadMainMeadow();
   });
 
-  async function loadMainMeadow(token, cookie) {
+  async function loadMainMeadow() {
     mainScreen.classList.remove('hidden');
     loginScreen.classList.add('hidden');
 
-    try {
-      const res = await fetch(`${getApiBase()}/api/emojis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token || '', cookie: cookie || '' })
-      });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        customEmojiCache = data.emoji || {};
-      }
-    } catch (e) {
-      console.warn('이모지 로드 예외:', e.message);
-    }
-
-    loadFeedbacks(true);
+    customEmojiCache = await SlackApi.fetchCustomEmojis();
+    await refreshFeedbacks();
     bottomSheet.classList.add('expanded');
     checkClipboardAndAutoPaste();
   }
 
-  // 📋 클립보드에 슬랙 메시지 URL이 있으면 자동 감지 및 입력창 붙여넣기 (PC & 모바일)
+  // 📋 Clipboard Auto Paste
   async function checkClipboardAndAutoPaste() {
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
@@ -183,16 +108,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
       }
-    } catch (e) {
-      // 클립보드 접근 권한 거부 시 안전하게 스킵
-    }
+    } catch (e) {}
   }
-
   window.addEventListener('focus', checkClipboardAndAutoPaste);
 
-  /* ====================================================
-     2. 슬랙 메시지 분석 및 결과 처리
-     ==================================================== */
+  // 🔍 Analyze Slack URL
   analyzerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = slackUrlInput.value.trim();
@@ -200,19 +120,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusContainer.classList.add('hidden');
 
     try {
-      const res = await fetch(`${getApiBase()}/api/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || '이모지 정보를 가져오는 데 실패했습니다.');
-      }
-
-      currentAnalyzedMessage = data.message;
-      renderAnalysisResult(data.message);
+      const messageData = await SlackApi.analyzeSlackUrl(url);
+      currentAnalyzedMessage = messageData;
+      renderAnalysisResult(messageData);
       resultSection.classList.remove('hidden');
     } catch (err) {
       showError(err.message);
@@ -227,12 +137,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     messageTime.textContent = msg.ts ? new Date(parseFloat(msg.ts) * 1000).toLocaleString('ko-KR') : '';
     messageText.innerHTML = parseTextEmojis(msg.text, customEmojiCache);
 
-    // 미반응자 (이모지 안 누른 채널 유저)
     currentUnreactedUsers = msg.unreactedUsers || [];
     unreactedCountBadge.textContent = currentUnreactedUsers.length;
     renderUnreactedList(currentUnreactedUsers);
 
-    // 이모지 필터 칩
     emojiFilterChips.innerHTML = '';
     const reactions = msg.reactions || [];
 
@@ -240,7 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const chip = document.createElement('div');
       chip.className = 'emoji-chip';
       chip.dataset.emojiName = r.name;
-      chip.innerHTML = `<span class="chip-icon">${renderEmojiIcon(r.name)}</span> <span class="chip-count">${r.count}</span>`;
+      chip.innerHTML = `<span class="chip-icon">${renderEmojiIcon(r.name, customEmojiCache)}</span> <span class="chip-count">${r.count}</span>`;
 
       chip.addEventListener('click', () => {
         chip.classList.toggle('selected');
@@ -249,10 +157,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       emojiFilterChips.appendChild(chip);
     });
 
-    if (reactions.length > 0) {
-      selectAllEmojis.checked = false;
-    }
-
+    selectAllEmojis.checked = false;
     renderUserAnalysisPanel(reactions);
   }
 
@@ -274,7 +179,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 탭 전환
+  // Tabs Toggle
   tabBtnEmojis.addEventListener('click', () => {
     tabBtnEmojis.classList.add('active');
     tabBtnUnreacted.classList.remove('active');
@@ -289,7 +194,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     tabContentEmojis.classList.add('hidden');
   });
 
-  // 미반응자 명단 복사
   btnCopyUnreacted.addEventListener('click', () => {
     if (currentUnreactedUsers.length === 0) return;
     const names = currentUnreactedUsers.map(u => u.real_name || u.name).join(' ');
@@ -297,35 +201,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     alert(`미반응자 ${currentUnreactedUsers.length}명의 이름이 복사되었습니다!`);
   });
 
-  // 미반응자 추첨기 소환
-  btnSummonUnreacted.addEventListener('click', () => {
+  btnSummonUnreacted.addEventListener('click', async () => {
     if (currentUnreactedUsers.length === 0) return;
-    saveFeedbackGroup('🚨 이모지 미반응자', currentUnreactedUsers);
+    const updated = await SlackApi.saveFeedbackGroup(slackUrlInput.value.trim(), '', '🚨 이모지 미반응자', currentUnreactedUsers);
+    renderFeedbackList(updated);
+    sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
-
-  function renderEmojiIcon(name) {
-    if (EMOJI_MAP[name]) return EMOJI_MAP[name];
-    if (customEmojiCache[name]) {
-      return `<img src="${customEmojiCache[name]}" style="width:16px;height:16px;vertical-align:middle;">`;
-    }
-    return `:${name}:`;
-  }
 
   function updateSelectedEmojiDetail(reactionData) {
     activeEmojiGroup = reactionData;
     selectedEmojiDetail.classList.remove('hidden');
-    detailEmojiBadge.innerHTML = renderEmojiIcon(reactionData.name);
+    detailEmojiBadge.innerHTML = renderEmojiIcon(reactionData.name, customEmojiCache);
     detailEmojiCount.textContent = `${reactionData.users.length}명`;
 
     detailUserList.innerHTML = reactionData.users.map(u => `
-      <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
+      <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f7;padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
         <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
         <span>${u.real_name || u.name}</span>
       </div>
     `).join('');
   }
 
-  function toggleSelectAllEmojis(isSelected) {
+  selectAllEmojis.addEventListener('change', (e) => {
+    const isSelected = e.target.checked;
     const chips = emojiFilterChips.querySelectorAll('.emoji-chip');
     chips.forEach(chip => {
       if (isSelected) chip.classList.add('selected');
@@ -346,54 +244,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       detailEmojiBadge.textContent = '🌟';
       detailEmojiCount.textContent = `${allUsersMap.size}명 (모든 반응자)`;
       detailUserList.innerHTML = activeEmojiGroup.users.map(u => `
-        <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
+        <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f7;padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
           <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
           <span>${u.real_name || u.name}</span>
         </div>
       `).join('');
     }
-  }
-
-  selectAllEmojis.addEventListener('change', (e) => toggleSelectAllEmojis(e.target.checked));
-
-  addToFeedbackBtn.addEventListener('click', () => {
-    if (!currentAnalyzedMessage || !activeEmojiGroup) return;
-    saveFeedbackGroup(activeEmojiGroup.name, activeEmojiGroup.users);
   });
 
-  async function saveFeedbackGroup(emojiName, users) {
-    try {
-      const res = await fetch(`${getApiBase()}/api/feedbacks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageLink: slackUrlInput.value.trim() || 'Custom Group',
-          messageText: currentAnalyzedMessage ? currentAnalyzedMessage.text : '',
-          emoji: emojiName,
-          users: users
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        renderFeedbackList(data.feedbacks);
-        sliderWrapper.style.transform = 'translateX(-33.333%)';
-      }
-    } catch (e) {
-      alert('소환 에러: ' + e.message);
-    }
-  }
+  addToFeedbackBtn.addEventListener('click', async () => {
+    if (!currentAnalyzedMessage || !activeEmojiGroup) return;
+    const updated = await SlackApi.saveFeedbackGroup(
+      slackUrlInput.value.trim(),
+      currentAnalyzedMessage.text,
+      activeEmojiGroup.name,
+      activeEmojiGroup.users
+    );
+    renderFeedbackList(updated);
+    sliderWrapper.style.transform = 'translateX(-33.333%)';
+  });
 
-  /* ====================================================
-     3. 추첨 명단 관리 및 무작위 추첨 롤러 엔진
-     ==================================================== */
-  async function loadFeedbacks(skipSync = false) {
-    try {
-      const res = await fetch(`${getApiBase()}/api/feedbacks`);
-      const data = await res.json();
-      if (data.ok) {
-        renderFeedbackList(data.feedbacks);
-      }
-    } catch (e) {}
+  async function refreshFeedbacks() {
+    const feedbacks = await SlackApi.fetchFeedbacks();
+    renderFeedbackList(feedbacks);
   }
 
   function getUniqueActiveRunners() {
@@ -410,7 +283,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderFeedbackList(feedbacks) {
     currentFeedbacksData = feedbacks || [];
-
     if (currentFeedbacksData.length === 0) {
       document.getElementById('feedback-list-container').innerHTML = '<p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
       startRaceBtn.classList.add('hidden');
@@ -425,20 +297,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     let html = '';
     currentFeedbacksData.forEach(f => {
       html += `
-        <div class="feedback-group-item" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px;margin-bottom:8px;">
+        <div class="feedback-group-item" style="background:#f5f5f7;border:1px solid rgba(0,0,0,0.06);border-radius:12px;padding:10px;margin-bottom:8px;">
           <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
             <span>:${f.emoji}: (${f.users.length}명)</span>
-            <button class="btn-danger-xs" onclick="deleteGroup('${f.messageLink}', '${f.emoji}')">삭제</button>
+            <button class="btn-danger-xs" data-link="${f.messageLink}" data-emoji="${f.emoji}">삭제</button>
           </div>
           <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
             ${f.users.map(u => `
-              <span class="user-tag" style="font-size:11px;background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:6px;">${u.real_name || u.name}</span>
+              <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid rgba(0,0,0,0.05);">${u.real_name || u.name}</span>
             `).join('')}
           </div>
         </div>
       `;
     });
-    document.getElementById('feedback-list-container').innerHTML = html;
+    const container = document.getElementById('feedback-list-container');
+    container.innerHTML = html;
+
+    container.querySelectorAll('.btn-danger-xs').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const link = e.target.dataset.link;
+        const emoji = e.target.dataset.emoji;
+        const updated = await SlackApi.deleteFeedbackGroup(link, emoji);
+        renderFeedbackList(updated);
+      });
+    });
   }
 
   function renderRoulettePreview(runners) {
@@ -464,30 +346,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 모드 전환
+  // 🔀 Game Mode Switch Event (NO auto lottery trigger!)
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
   gameModeRadios.forEach(radio => {
     radio.addEventListener('change', (e) => {
-      if (e.target.value === 'group') {
+      const mode = e.target.value;
+      if (mode === 'group') {
         configPodium.classList.add('hidden');
         configGroup.classList.remove('hidden');
         rouletteStage.classList.add('hidden');
         groupDealerStage.classList.remove('hidden');
+        startRaceBtn.textContent = '🎴 팀 나누기!';
       } else {
         configGroup.classList.add('hidden');
         configPodium.classList.remove('hidden');
         groupDealerStage.classList.add('hidden');
         rouletteStage.classList.remove('hidden');
+        startRaceBtn.textContent = '🎰 추첨 시작!';
       }
     });
   });
 
-  /* ====================================================
-     4. 무작위 추첨 애니메이션
-     ==================================================== */
-  startRaceBtn.addEventListener('click', runLotteryAnimation);
-
-  function runLotteryAnimation() {
+  // 🎰 Start Lottery ONLY on explicit Button Click
+  startRaceBtn.addEventListener('click', () => {
     const runners = getUniqueActiveRunners();
     if (runners.length === 0) {
       alert('추첨 대상 유저가 없습니다!');
@@ -495,109 +376,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
-    raceCommentary.classList.remove('hidden');
-    isRolling = true;
+    const elements = {
+      rouletteReelContainer,
+      groupBoxesGrid,
+      raceCommentary,
+      commentaryText
+    };
 
     if (mode === 'podium') {
       const winCount = Math.min(parseInt(winnerCountInput.value) || 1, runners.length);
-      startReelRollAnimation(runners, winCount);
+      LotteryEngine.startSlotLottery(runners, winCount, elements, showFinalResultView);
     } else {
       const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
-      startGroupDivideAnimation(runners, teamCount);
+      LotteryEngine.startGroupDealer(runners, teamCount, elements, showFinalResultView);
     }
-  }
-
-  function startReelRollAnimation(runners, winCount) {
-    commentaryText.textContent = '🎯 무작위 롤러 돌아가는 중...';
-    const shuffled = [...runners].sort(() => Math.random() - 0.5);
-    const winners = shuffled.slice(0, winCount);
-
-    let reelCardsHtml = '';
-    for (let i = 0; i < 8; i++) {
-      runners.forEach(u => {
-        reelCardsHtml += `
-          <div class="picker-card-2d">
-            <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-            <span class="card-name">${u.real_name || u.name}</span>
-          </div>
-        `;
-      });
-    }
-    rouletteReelContainer.innerHTML = reelCardsHtml;
-
-    let startTime = Date.now();
-    let duration = 2500;
-
-    function rollLoop() {
-      if (!isRolling) return;
-      let elapsed = Date.now() - startTime;
-      let progress = elapsed / duration;
-
-      if (progress < 1) {
-        let speed = Math.max(2, 30 * (1 - Math.pow(progress, 2)));
-        reelY -= speed;
-        if (Math.abs(reelY) > 1200) reelY = 0;
-        rouletteReelContainer.style.transform = `translateY(${reelY}px)`;
-        rollAnimTimer = requestAnimationFrame(rollLoop);
-      } else {
-        finishReelLottery(winners);
-      }
-    }
-    rollLoop();
-  }
-
-  function finishReelLottery(winners) {
-    isRolling = false;
-    cancelAnimationFrame(rollAnimTimer);
-    commentaryText.textContent = `🎉 축하합니다! ${winners.length}명의 당첨자 선정!`;
-
-    rouletteReelContainer.innerHTML = winners.map(w => `
-      <div class="picker-card-2d winner-highlight">
-        <img src="${w.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-        <span class="card-name">🎉 ${w.real_name || w.name}</span>
-      </div>
-    `).join('');
-    rouletteReelContainer.style.transform = 'translateY(0px)';
-
-    setTimeout(() => {
-      showFinalResultView('podium', winners);
-    }, 1200);
-  }
-
-  function startGroupDivideAnimation(runners, teamCount) {
-    commentaryText.textContent = '👥 무작위 조 구성 중...';
-    const shuffled = [...runners].sort(() => Math.random() - 0.5);
-    const teams = Array.from({ length: teamCount }, () => []);
-
-    shuffled.forEach((runner, idx) => {
-      teams[idx % teamCount].push(runner);
-    });
-
-    groupBoxesGrid.innerHTML = teams.map((team, tIdx) => `
-      <div class="group-team-box">
-        <div class="team-title"><span>TEAM ${tIdx + 1}</span> <span>${team.length}명</span></div>
-        <div class="team-members" style="display:flex;flex-wrap:wrap;gap:4px;">
-          ${team.map(m => `<span class="group-member-pill">${m.real_name || m.name}</span>`).join('')}
-        </div>
-      </div>
-    `).join('');
-
-    setTimeout(() => {
-      showFinalResultView('group', teams);
-    }, 1200);
-  }
+  });
 
   btnSkipRace.addEventListener('click', () => {
-    if (!isRolling) return;
+    if (!LotteryEngine.isRolling) return;
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     const runners = getUniqueActiveRunners();
+    const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
+
     if (mode === 'podium') {
       const winCount = Math.min(parseInt(winnerCountInput.value) || 1, runners.length);
       const winners = [...runners].sort(() => Math.random() - 0.5).slice(0, winCount);
-      finishReelLottery(winners);
+      LotteryEngine.finishSlotLottery(winners, elements, showFinalResultView);
     } else {
       const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
-      startGroupDivideAnimation(runners, teamCount);
+      LotteryEngine.startGroupDealer(runners, teamCount, elements, showFinalResultView);
     }
   });
 
@@ -623,7 +430,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       rankingListView.classList.add('hidden');
       groupRankingView.innerHTML = resultData.map((team, tIdx) => `
         <div class="panel-card" style="text-align:left;margin-bottom:8px;">
-          <h4 style="color:#4f46e5;margin-bottom:6px;">TEAM ${tIdx + 1} (${team.length}명)</h4>
+          <h4 style="color:var(--primary);margin-bottom:6px;">TEAM ${tIdx + 1} (${team.length}명)</h4>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
             ${team.map(m => `<span class="group-member-pill">${m.real_name || m.name}</span>`).join('')}
           </div>
@@ -638,11 +445,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   rankingRetryBtn.addEventListener('click', () => {
     sliderWrapper.style.transform = 'translateX(-33.333%)';
-    runLotteryAnimation();
   });
 
   btnPrevSlide.addEventListener('click', () => {
     sliderWrapper.style.transform = 'translateX(0%)';
+  });
+
+  selectAllRunnersBtn.addEventListener('click', () => {
+    // Select all action if needed
+  });
+
+  deleteAllRunnersBtn.addEventListener('click', async () => {
+    if (confirm('소환된 명단을 모두 삭제하시겠습니까?')) {
+      for (const f of currentFeedbacksData) {
+        await SlackApi.deleteFeedbackGroup(f.messageLink, f.emoji);
+      }
+      refreshFeedbacks();
+    }
   });
 
   function setLoading(loading) {
@@ -675,9 +494,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     analysisTotalCount.textContent = `총 ${userMap.size}명`;
     analysisUserList.innerHTML = Array.from(userMap.values()).map(item => `
-      <div class="user-analysis-item" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-        <span style="font-size:12px;">${item.user.real_name || item.user.name}</span>
-        <span>${item.emojis.map(e => renderEmojiIcon(e)).join(' ')}</span>
+      <div class="user-analysis-item" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
+        <span style="font-size:12px;font-weight:600;">${item.user.real_name || item.user.name}</span>
+        <span>${item.emojis.map(e => renderEmojiIcon(e, customEmojiCache)).join(' ')}</span>
       </div>
     `).join('');
   }
