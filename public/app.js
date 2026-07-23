@@ -12,7 +12,10 @@ const EMOJI_MAP = {
   'star': '⭐', 'star2': '🌟', 'sparkler': '🎇', 'balloon': '🎈',
   'gift': '🎁', 'trophy': '🏆', 'first_place_medal': '🥇',
   'x': '❌', 'heavy_check_mark': 'Heavy Check Mark', 'heavy_plus_sign': '➕',
-  'wave': '👋', 'ok_hand': '👌', 'v': '✌️', 'muscle': '💪', 'brain': '🧠'
+  'wave': '👋', 'ok_hand': '👌', 'v': '✌️', 'muscle': '💪', 'brain': '🧠',
+  'zero': '0️⃣', 'one': '1️⃣', 'two': '2️⃣', 'three': '3️⃣', 'four': '4️⃣',
+  'five': '5️⃣', 'six': '6️⃣', 'seven': '7️⃣', 'eight': '8️⃣', 'nine': '9️⃣',
+  'keycap_ten': '🔟', '1234': '🔢'
 };
 
 // API 서버 기본 경로 (GitHub Pages에서 오라클 서버로 호출)
@@ -247,8 +250,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (reactions.length > 0) {
-      selectAllEmojis.checked = true;
-      toggleSelectAllEmojis(true);
+      selectAllEmojis.checked = false;
     }
 
     renderUserAnalysisPanel(reactions);
