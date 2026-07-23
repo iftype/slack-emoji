@@ -20,8 +20,8 @@
       <!-- 스마트폰 수화기/카메라 스피커 데코 -->
       <div class="phone-speaker"></div>
 
-      <!-- 🔐 1단계: 로그인 화면 -->
-      <div id="login-screen" class="screen-container">
+      <!-- 🔐 1단계: 로그인 화면 (서버 토큰 유무에 따른 예외 처리용) -->
+      <div id="login-screen" class="screen-container hidden">
         <div class="login-card">
           <header class="login-header">
             <span class="login-logo">🌱</span>
@@ -35,7 +35,6 @@
                 type="password" 
                 id="login-token" 
                 placeholder="xoxp-, xoxs- 또는 xoxc- 토큰 입력" 
-                required
               >
             </div>
             <div class="form-group hidden" id="login-cookie-group">
@@ -57,8 +56,8 @@
         </div>
       </div>
 
-      <!-- 🍀 메인 서비스 화면 -->
-      <div id="main-screen" class="screen-container hidden">
+      <!-- 🍀 메인 서비스 화면 (기본 노출) -->
+      <div id="main-screen" class="screen-container">
         
         <!-- 모바일 화면 전체를 뒤덮는 화이트/그린 2D 초원 캔버스 -->
         <div class="meadow-canvas-full" id="meadow-canvas">

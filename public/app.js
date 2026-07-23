@@ -134,21 +134,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let reelY = 0;
 
   /* ====================================================
-     1. 로그인 스킵 / 세션 체크
+     1. 초기화 및 세션 연결 (서버 토큰 기본 사용)
      ==================================================== */
-  let serverHasToken = false;
-  try {
-    const statusRes = await fetch(`${getApiBase()}/api/server-token-status`);
-    const statusData = await statusRes.json();
-    serverHasToken = statusData.hasServerToken;
-  } catch (e) {}
-
-  if (serverHasToken) {
-    loadMainMeadow('server-managed', '');
-  } else {
-    loginScreen.classList.remove('hidden');
-    mainScreen.classList.add('hidden');
-  }
+  loadMainMeadow('server-managed', '');
 
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
