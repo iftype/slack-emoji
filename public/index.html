@@ -17,52 +17,13 @@
       <!-- 스마트폰 수화기/카메라 스피커 데코 -->
       <div class="phone-speaker"></div>
 
-      <!-- 🔐 1단계: 로그인 화면 -->
-      <div id="login-screen" class="screen-container">
-        <div class="login-card">
-          <header class="login-header">
-            <span class="login-logo">🌱</span>
-            <h2>Slack Meadow</h2>
-            <p>슬랙 이모지 반응자를 소환해 달리기를 시작해보세요.</p>
-          </header>
-          <form id="login-form">
-            <div class="form-group">
-              <label for="login-token">Slack User Token</label>
-              <input 
-                type="password" 
-                id="login-token" 
-                placeholder="xoxp-, xoxs- 또는 xoxc- 토큰 입력" 
-                required
-                autocomplete="current-password"
-              >
-            </div>
-            <div class="form-group hidden" id="login-cookie-group">
-              <label for="login-cookie">Session Cookie 'd'</label>
-              <input 
-                type="password" 
-                id="login-cookie" 
-                placeholder="xoxd- 로 시작하는 슬랙 d 쿠키 입력"
-                autocomplete="off"
-              >
-            </div>
-            <button type="submit" id="login-submit-btn" class="btn-primary">
-              <span class="btn-text">슬랙 연결하기</span>
-              <div class="spinner hidden"></div>
-            </button>
-          </form>
-          <div id="login-status" class="status-container hidden">
-            <div id="login-status-message" class="status-message"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 🍀 2단계: 메인 서비스 화면 -->
-      <div id="main-screen" class="screen-container hidden">
+      <!-- 🍀 메인 서비스 화면 -->
+      <div id="main-screen" class="screen-container">
         
         <!-- 모바일 화면 전체를 뒤덮는 화이트 맵 초원 -->
         <div class="meadow-canvas-full" id="meadow-canvas">
           
-          <!-- 🌲 v18: 시차(Parallax) 스크롤용 배경 나무 레이어 -->
+          <!-- 🌲 시차(Parallax) 스크롤용 배경 나무 레이어 -->
           <div class="parallax-trees-container" id="parallax-trees">
             <div class="parallax-tree tree-1">🌲</div>
             <div class="parallax-tree tree-2">🌳</div>
@@ -77,7 +38,7 @@
           <!-- 🎥 시네마틱 가로 추적 LERP 패닝 & Dynamic Zoom 적용 카메라 스테이지 -->
           <div id="camera-stage" class="camera-stage-wrapper">
             
-            <!-- 🏟️ v18/19/20: 2D 수평 횡스크롤 트랙 경기장 -->
+            <!-- 🏟️ 2D 수평 횡스크롤 트랙 경기장 (캐릭터와 동일 좌표계) -->
             <div class="stadium-stage-2d">
               <div class="stadium-plate-2d">
                 <!-- 가로 직선 레인 라인 4줄 -->
@@ -88,18 +49,18 @@
                 
                 <!-- 출발선 세로 라인 -->
                 <div class="start-line-straight-2d"></div>
-                <!-- 결승선 세로 라인 (v20: 2500px 지점) -->
+                <!-- 결승선 세로 라인 (2500px 지점) -->
                 <div class="finish-line-straight-2d"></div>
 
-                <!-- 결승선 2D 피니시 아치 (v20: 2500px 지점) -->
+                <!-- 결승선 2D 피니시 아치 (2500px 지점) -->
                 <div class="finish-gate-2d">
                   <div class="gate-bar">FINISH</div>
                 </div>
               </div>
-            </div>
 
-            <!-- 졸라맨 캐릭터들이 뛰어놀 공간 -->
-            <div id="character-container" class="character-container-full"></div>
+              <!-- 졸라맨 캐릭터 — 경기장과 같은 3200px 좌표계 -->
+              <div id="character-container" class="character-container-full"></div>
+            </div>
           </div>
 
           <!-- 🎙️ 실시간 경기 중계 오버레이 자막 바 + ⏩ 바로 결과보기 스킵 버튼 -->
@@ -141,7 +102,6 @@
                         <span class="emoji-logo">🌱</span>
                         <h1>Slack Meadow</h1>
                       </div>
-                      <button id="logout-btn" class="btn-logout" title="로그아웃">로그아웃</button>
                     </div>
                     <p class="panel-subtitle">이모지 반응자를 소환해 달리기를 시작해보세요.</p>
                   </header>
@@ -230,7 +190,6 @@
                   <!-- 슬라이드 2 네비게이션 헤더 -->
                   <header class="slide-header-nav">
                     <button id="btn-prev-slide" class="btn-prev-slide">⬅️ 추가 소환하기</button>
-                    <button id="logout-btn-2" class="btn-logout" title="로그아웃">로그아웃</button>
                   </header>
 
                   <!-- 3. 피드백 목록 (경주 명단 및 경주 제어) -->
@@ -282,7 +241,6 @@
                 <div class="slide-panel" id="slide-3">
                   <header class="slide-header-nav">
                     <h3 class="result-nav-title">👑 최종 경기 결과</h3>
-                    <button id="logout-btn-3" class="btn-logout" title="로그아웃">로그아웃</button>
                   </header>
 
                   <section class="panel-card result-ranking-card">

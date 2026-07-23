@@ -158,17 +158,12 @@ async function getUserInfo(userId, token, cookieD = '') {
    API 라우트 설계
    ==================================================== */
 
-// [로그인 검증 API]
+// [로그인 검증 API] — 서버 토큰 전용 (클라이언트 토큰 미사용)
 app.post('/api/login', async (req, res) => {
-  let { token, cookie } = req.body;
-  // 서버 환경변수 토큰이 있으면 우선 사용
-  const serverToken = getServerToken();
-  if (serverToken) {
-    token = serverToken;
-    cookie = getServerCookie();
-  }
+  const token = getServerToken();
+  const cookie = getServerCookie();
   if (!token) {
-    return res.status(400).json({ ok: false, error: '토큰이 입력되지 않았습니다.' });
+    return res.status(503).json({ ok: false, error: '서버에 SLACK_TOKEN이 설정되지 않았습니다.' });
   }
 
   try {
@@ -177,13 +172,9 @@ app.post('/api/login', async (req, res) => {
       headers['Cookie'] = `d=${cookie}`;
     }
 
-    // auth.test API 호출로 토큰 유효성 검증
     const response = await axios.post('https://slack.com/api/auth.test', {}, { headers });
 
     if (response.data.ok) {
-      // 로그인 성공 시 서버 기본 설정에 자동 저장 (편의 제공)
-      saveConfig({ token, cookie: cookie || '' });
-      
       return res.json({
         ok: true,
         user: response.data.user,
@@ -200,14 +191,10 @@ app.post('/api/login', async (req, res) => {
 
 // [커스텀 이모지 목록 가져오기 API]
 app.post('/api/emojis', async (req, res) => {
-  let { token, cookie } = req.body;
-  const serverToken = getServerToken();
-  if (serverToken) {
-    token = serverToken;
-    cookie = getServerCookie();
-  }
+  const token = getServerToken();
+  const cookie = getServerCookie();
   if (!token) {
-    return res.status(400).json({ ok: false, error: '인증 토큰이 유실되었습니다.' });
+    return res.status(503).json({ ok: false, error: '서버에 SLACK_TOKEN이 설정되지 않았습니다.' });
   }
 
   try {
@@ -230,19 +217,19 @@ app.post('/api/emojis', async (req, res) => {
 // [분석 API]
 app.post('/api/analyze', async (req, res) => {
   const { url } = req.body;
-  let { token, cookie } = req.body;
-  const serverToken = getServerToken();
-  if (serverToken) {
-    token = serverToken;
-    cookie = getServerCookie();
+  const token = getServerToken();
+  const cookie = getServerCookie();
+
+  if (!token) {
+    return res.status(503).json({ ok: false, error: '서버에 SLACK_TOKEN이 설정되지 않았습니다.' });
   }
 
-  if (!url || !token) {
-    return res.status(400).json({ ok: false, error: '링크 및 인증 토큰이 필요합니다.' });
+  if (!url) {
+    return res.status(400).json({ ok: false, error: '슬랙 메시지 링크가 필요합니다.' });
   }
 
   if (token.startsWith('xoxc-') && !cookie) {
-    return res.status(400).json({ ok: false, error: 'xoxc- 토큰을 쓰려면 슬랙 d 쿠키 세션이 필요합니다.' });
+    return res.status(400).json({ ok: false, error: 'xoxc- 토큰을 쓰려면 SLACK_COOKIE 환경변수가 필요합니다.' });
   }
 
   const parsed = parseSlackUrl(url);
@@ -272,7 +259,7 @@ app.post('/api/analyze', async (req, res) => {
       let userFriendlyError = `슬랙 API 에러: ${slackError}`;
       
       if (slackError === 'invalid_auth') {
-        userFriendlyError = '슬랙 인증 세션이 만료되었습니다. 다시 로그인 해 주세요.';
+        userFriendlyError = '슬랙 인증 세션이 만료되었습니다. 서버 토큰을 확인해 주세요.';
       } else if (slackError === 'channel_not_found') {
         userFriendlyError = '채널을 찾을 수 없거나 접근 권한이 없습니다. (해당 채널에 토큰 계정이 가입되어 있어야 합니다.)';
       }

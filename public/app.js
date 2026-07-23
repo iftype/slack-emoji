@@ -227,19 +227,7 @@ const sfx = new SoundFXEngine();
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM 엘리먼트 정의
-  const loginScreen = document.getElementById('login-screen');
-  const loginForm = document.getElementById('login-form');
-  const loginTokenInput = document.getElementById('login-token');
-  const loginCookieGroup = document.getElementById('login-cookie-group');
-  const loginCookieInput = document.getElementById('login-cookie');
-  const loginSubmitBtn = document.getElementById('login-submit-btn');
-  const loginStatus = document.getElementById('login-status');
-  const loginStatusMsg = document.getElementById('login-status-message');
-
   const mainScreen = document.getElementById('main-screen');
-  const logoutBtn = document.getElementById('logout-btn');
-  const logoutBtn2 = document.getElementById('logout-btn-2');
-  const logoutBtn3 = document.getElementById('logout-btn-3');
   const analyzerForm = document.getElementById('analyzer-form');
   const slackUrlInput = document.getElementById('slack-url');
   const submitBtn = document.getElementById('submit-btn');
@@ -452,126 +440,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ====================================================
-     1. 로그인 / 세션 쿠키 핸들러
+     1. 서버 토큰 전용 — 로그인 화면 없이 바로 시작
      ==================================================== */
-  
-  const activeToken = localStorage.getItem('slack_emoji_analyzer_token');
-  const activeCookie = localStorage.getItem('slack_emoji_analyzer_cookie');
-
-  // 서버에 토큰이 설정되어 있으면 로그인 스킵
-  let serverHasToken = false;
-  try {
-    const statusRes = await fetch(`${getApiBase()}/api/server-token-status`);
-    const statusData = await statusRes.json();
-    serverHasToken = statusData.hasServerToken;
-  } catch (e) { /* 서버 연결 실패 시 일반 로그인 진행 */ }
-
-  if (serverHasToken) {
-    // 서버 토큰으로 자동 로그인
-    loadMainMeadow('server-managed', '');
-  } else if (activeToken) {
-    loadMainMeadow(activeToken, activeCookie || '');
-  } else {
-    loginScreen.classList.remove('hidden');
-    mainScreen.classList.add('hidden');
-  }
-
-  loginTokenInput.addEventListener('input', (e) => {
-    const val = e.target.value.trim();
-    if (val.startsWith('xoxc-')) {
-      loginCookieGroup.classList.remove('hidden');
-      loginCookieInput.required = true;
-    } else {
-      loginCookieGroup.classList.add('hidden');
-      loginCookieInput.required = false;
-      loginCookieInput.value = '';
-    }
-  });
-
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const token = loginTokenInput.value.trim();
-    const cookie = loginCookieInput.value.trim();
-
-    if (!token.startsWith('xoxp-') && !token.startsWith('xoxs-') && !token.startsWith('xoxc-')) {
-      showLoginError('올바른 슬랙 토큰 형식이 아닙니다 (xoxp-, xoxs-, xoxc- 로 시작해야 함)');
-      return;
-    }
-
-    if (token.startsWith('xoxc-') && !cookie) {
-      showLoginError('xoxc- 토큰의 경우 슬랙 d 세션 쿠키가 필수적입니다.');
-      return;
-    }
-
-    setLoginLoading(true);
-
-    try {
-      const res = await fetch(`${getApiBase()}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, cookie })
-      });
-      const data = await res.json();
-
-      if (res.ok && data.ok) {
-        localStorage.setItem('slack_emoji_analyzer_token', token);
-        if (cookie) {
-          localStorage.setItem('slack_emoji_analyzer_cookie', cookie);
-        } else {
-          localStorage.removeItem('slack_emoji_analyzer_cookie');
-        }
-
-        loginScreen.classList.add('hidden');
-        loadMainMeadow(token, cookie);
-      } else {
-        showLoginError(data.error || '슬랙 연결에 실패했습니다.');
-      }
-    } catch (err) {
-      showLoginError('서버 연결 중 에러가 발생했습니다.');
-    } finally {
-      setLoginLoading(false);
-    }
-  });
-
-  function setLoginLoading(isLoading) {
-    const spinner = loginSubmitBtn.querySelector('.spinner');
-    const text = loginSubmitBtn.querySelector('.btn-text');
-    if (isLoading) {
-      loginSubmitBtn.disabled = true;
-      spinner.classList.remove('hidden');
-      text.textContent = '슬랙 연결 중...';
-    } else {
-      loginSubmitBtn.disabled = false;
-      spinner.classList.add('hidden');
-      text.textContent = '슬랙 연결하기';
-    }
-  }
-
-  function showLoginError(msg) {
-    loginStatus.classList.remove('hidden');
-    loginStatusMsg.className = 'status-message error';
-    loginStatusMsg.textContent = msg;
-  }
-
-  const handleLogout = () => {
-    if (confirm('로그아웃 하시고 연결을 해제하시겠습니까?')) {
-      localStorage.removeItem('slack_emoji_analyzer_token');
-      localStorage.removeItem('slack_emoji_analyzer_cookie');
-      location.reload();
-    }
-  };
-
-  logoutBtn.addEventListener('click', handleLogout);
-  logoutBtn2.addEventListener('click', handleLogout);
-  logoutBtn3.addEventListener('click', handleLogout);
+  localStorage.removeItem('slack_emoji_analyzer_token');
+  localStorage.removeItem('slack_emoji_analyzer_cookie');
+  loadMainMeadow();
 
   /* ====================================================
      2. 메인 Meadow 서비스 로드 및 이모지 캐싱
      ==================================================== */
 
-  async function loadMainMeadow(token, cookie) {
+  async function loadMainMeadow() {
     mainScreen.classList.remove('hidden');
-    loginScreen.classList.add('hidden');
 
     await initTransparentImages();
 
@@ -579,7 +459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await fetch(`${getApiBase()}/api/emojis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, cookie })
+        body: JSON.stringify({})
       });
       const data = await res.json();
       if (res.ok && data.ok) {
@@ -599,8 +479,6 @@ document.addEventListener('DOMContentLoaded', async () => {
      ==================================================== */
   analyzerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('slack_emoji_analyzer_token');
-    const cookie = localStorage.getItem('slack_emoji_analyzer_cookie') || '';
     const url = slackUrlInput.value.trim();
 
     setLoading(true);
@@ -610,7 +488,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await fetch(`${getApiBase()}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, cookie, url })
+        body: JSON.stringify({ url })
       });
       const data = await res.json();
 
@@ -1169,21 +1047,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const state = spawnedCharacters.get(userId);
     if (!state) return;
 
-    // 🏃 v20: 마라톤 옹기종기 밀집 출발 정렬
+    // 🏃 경기장(280px 높이) 레인 안에 옹기종기 밀집 출발
     const cols = 5; 
     const xCol = idx % cols;
     const yRow = Math.floor(idx / cols);
 
-    state.x = 45 + xCol * 15 + Math.random() * 8;
-    // Y축 높이 280px 중 안전 유효 범위(55px ~ 225px) 안에 정렬되도록 가둠
-    state.y = 55 + (yRow * 24) % 170; 
+    state.x = 40 + xCol * 14 + Math.random() * 6;
+    // 트랙 바닥(bottom) 기준 18~170px — 캐릭터 키가 레인 안에 들어오도록
+    state.y = 18 + (yRow * 26) % 152; 
 
     state.element.style.transition = 'left 0.8s cubic-bezier(0.25, 1, 0.5, 1), bottom 0.8s cubic-bezier(0.25, 1, 0.5, 1)';
     state.element.style.left = `${state.x}px`;
     state.element.style.bottom = `${state.y}px`;
     
     state.bodyElement.style.transform = 'scale(0.85)';
-    state.element.style.zIndex = '125'; // 모달 위 상시 레이어
+    state.element.style.zIndex = String(20 + Math.round(state.y));
     
     state.element.classList.remove('waddling-walk');
     state.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
@@ -1242,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function deleteFeedbackCard(messageLink, emoji) {
     try {
-      const res = await fetch(`${getApiBase()}/api/feedbacks', {
+      const res = await fetch(`${getApiBase()}/api/feedbacks`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messageLink, emoji })
@@ -1399,15 +1277,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   function startStadiumRace() {
     isRacing = true;
 
-    // ⚡ v20: 5배 길어진 경기장 질주용 초광속 속도 튜닝 (2.3 ~ 3.4px 전진)
+    // ⚡ 3200px 트랙용 속도 튜닝 (약 12~18초 완주)
     spawnedCharacters.forEach((state) => {
       state.speed = 2.45 + Math.random() * 1.1; 
-      // 낙오 지점 재설정
       state.fallX = 350 + Math.random() * 2050;
     });
 
     camX = 0;
     camY = 0;
+    currentZoom = Math.max(0.55, 1.05 - (totalRunnersCount * 0.012));
 
     let frameIndex = 0;
     let lastCommentTime = 0;
@@ -1456,7 +1334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      // 💥 v20: 달리다가 툭 넘어지며 낙오되는 돌발 탈락 기믹
+      // 💥 달리다가 툭 넘어지며 낙오되는 돌발 탈락 기믹
       spawnedCharacters.forEach((state, uid) => {
         if (state.isDead || state.isFinished) return;
 
@@ -1478,11 +1356,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
 
-      // 가로 좌표 업데이트
+      // 가로 좌표 업데이트 (경기장 좌표계와 동일)
       spawnedCharacters.forEach((state, uid) => {
         if (state.isDead) return;
 
-        // 골인선(v20: X=2500px 지점) 감지
         if (state.x >= 2500) {
           if (!state.isFinished) {
             state.isFinished = true;
@@ -1491,61 +1368,60 @@ document.addEventListener('DOMContentLoaded', async () => {
               display_name: state.element.querySelector('.char-name-bubble').textContent
             });
             state.element.querySelector('.char-name-bubble').innerHTML = `🏁 ${charName}`;
-            commentaryText.textContent = `[중계] 🎉 ${charName} 선수, 2500px 피니시 아치 골인!`;
+            commentaryText.textContent = `[중계] 🎉 ${charName} 선수, 피니시 아치 골인!`;
           }
+          state.element.style.left = `${state.x - 30}px`;
+          state.element.style.bottom = `${state.y}px`;
           return;
         }
 
-        // 가로 X축 질주
         const frameSpeed = state.speed + Math.sin(frameIndex * 0.08 + state.randomSeed) * 0.12;
         state.x += frameSpeed;
 
-        const posY = state.y;
         state.bodyElement.classList.remove('facing-left');
 
-        const scale = 0.88 - (state.y - 80) * 0.0006;
+        const scale = 0.82 + (state.y / 280) * 0.18;
 
         state.element.style.left = `${state.x - 30}px`; 
-        state.element.style.bottom = `${posY - 48}px`; 
+        state.element.style.bottom = `${state.y}px`; 
         state.bodyElement.style.transform = `scale(${scale})`;
-        state.element.style.zIndex = '125'; 
+        state.element.style.zIndex = String(20 + Math.round(state.y)); 
       });
 
-      // 🔍 v20: 인원수 비례 원경 baseZoom 자동 축소 스케일러 & LERP 추적
+      // 🔍 선두 그룹 추적 카메라 + 인원수 비례 줌
       if (aliveRunners.length > 0) {
         let sumX = 0;
         let runningCount = 0;
+        let leadX = 0;
 
         aliveRunners.forEach(r => {
           if (!r.state.isFinished) {
             sumX += r.state.x;
             runningCount++;
+            if (r.state.x > leadX) leadX = r.state.x;
           }
         });
 
-        const avgX = runningCount > 0 ? (sumX / runningCount) : 2500;
+        const focusX = runningCount > 0 ? (sumX / runningCount) : 2500;
 
-        // 카메라 가로 LERP
-        const targetCamX = 145 - avgX;
-        camX += (targetCamX - camX) * 0.12;
+        // 주자 평균 위치를 화면 좌측 ~80px 지점에 유지
+        const targetCamX = 80 - focusX;
+        camX += (targetCamX - camX) * 0.14;
 
         let currentAliveCount = 0;
         spawnedCharacters.forEach((st) => {
           if (!st.isDead) currentAliveCount++;
         });
 
-        // 인원수가 많을 때 (예: 30명) baseZoom을 0.45까지 조절해 원경에서 넓게 조망
-        const baseZoom = Math.max(0.42, 1.1 - (totalRunnersCount * 0.016));
-        // 주자가 줄어들며 1명이 남을 때 최종적으로 1.65배 줌인
-        const targetZoom = baseZoom + ((totalRunnersCount - currentAliveCount) / Math.max(1, totalRunnersCount)) * (1.65 - baseZoom);
-        currentZoom += (targetZoom - currentZoom) * 0.04;
+        const baseZoom = Math.max(0.5, 1.05 - (totalRunnersCount * 0.012));
+        const targetZoom = baseZoom + ((totalRunnersCount - currentAliveCount) / Math.max(1, totalRunnersCount)) * (1.45 - baseZoom);
+        currentZoom += (targetZoom - currentZoom) * 0.05;
 
-        cameraStage.style.transform = `scale(${currentZoom}) translate(${camX}px, 0px)`;
+        cameraStage.style.transform = `translate(${camX}px, 0px) scale(${currentZoom})`;
 
-        // 패럴랙스 배경 나무 시차 스크롤
         parallaxTrees.forEach((tree, tIdx) => {
           const initialOffset = tIdx * 105; 
-          const parallaxX = initialOffset + camX * 0.45; 
+          const parallaxX = initialOffset + camX * 0.4; 
           tree.style.transform = `translateX(${parallaxX}px)`;
         });
       }
@@ -1572,7 +1448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function finishRace() {
-    cameraStage.style.transform = 'scale(1.0) translate(0px, 0px)';
+    cameraStage.style.transform = 'translate(0px, 0px) scale(1)';
     sfx.playWoohoo();
 
     bottomSheet.classList.add('expanded');
@@ -1718,7 +1594,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     isRacing = false;
     cancelAnimationFrame(raceAnimationFrameId);
 
-    cameraStage.style.transform = 'scale(1.0) translate(0px, 0px)';
+    cameraStage.style.transform = 'translate(0px, 0px) scale(1)';
 
     let idx = 0;
     spawnedCharacters.forEach((state, uid) => {
