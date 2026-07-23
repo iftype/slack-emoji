@@ -3,36 +3,268 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Slack Pick Studio - 슬랙 무작위 룰렛 추첨기</title>
+  <title>Slack Meadow - 슬랙 이모지 무작위 추첨기</title>
   
-  <!-- 강한 캐시 방지 메타 태그 (모바일 및 디스크 캐시 완전 차단) -->
+  <!-- 강한 캐시 방지 메타 태그 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 
   <!-- SEO & Open Graph -->
   <meta name="description" content="슬랙 메시지의 이모지 반응자를 한눈에 분석하고, 2D 무작위 롤러 추첨기로 공정하게 당첨자를 뽑거나 팀을 나누는 프레시한 웹 서비스입니다.">
-  <meta property="og:title" content="Slack Pick Studio - 슬랙 무작위 룰렛 추첨기">
+  <meta property="og:title" content="Slack Meadow - 슬랙 이모지 무작위 추첨기">
   <meta property="og:description" content="이모지 반응자 분석 & 2D 롤러 추첨기">
   <meta property="og:type" content="website">
 
-  <!-- Google Fonts: Inter -->
+  <!-- Google Fonts: Inter & Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=2.9.0">
-
-  <!-- React 18 & Babel Standalone CDN for instant Production deployment -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="style.css?v=3.0.0">
 </head>
 <body>
-  <!-- React Mount Point -->
-  <div id="root"></div>
+  <!-- 🍀 모바일/데스크탑 화이트 2D 초원 캔버스 -->
+  <div class="meadow-canvas-full">
+    <!-- Top 2D Stage Viewport -->
+    <div class="viewport-header">
+      <h2>🎰 Slack Meadow</h2>
+    </div>
 
-  <!-- React Application Component Script (Cache-busted) -->
-  <script type="text/babel" src="react-app.jsx?v=2.9.0"></script>
+    <!-- 🎯 2D 초원 중앙 룰렛 추첨기 스테이지 -->
+    <div id="lottery-stage" class="lottery-stage">
+      <div id="roulette-stage" class="roulette-stage">
+        <div class="roulette-title-badge">🎰 RANDOM ROULETTE</div>
+        <div class="roulette-window-2d">
+          <div class="target-line-2d">
+            <span class="arrow-left">▶</span>
+            <span class="arrow-right">◀</span>
+          </div>
+          <div id="roulette-reel-container" class="roulette-reel-container">
+            <div class="picker-card-2d empty-card">
+              <span class="card-avatar-text">🌱</span>
+              <span class="card-name">명단을 소환해 보세요!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="group-dealer-stage" class="group-dealer-stage hidden">
+        <div class="roulette-title-badge">👥 GROUP DEALER</div>
+        <div id="group-boxes-grid" class="group-boxes-grid"></div>
+      </div>
+
+      <div id="race-commentary" class="race-commentary-bar hidden">
+        <span id="commentary-text" class="commentary-text">🎯 룰렛 돌리는 중...</span>
+        <button id="btn-skip-race" class="btn-skip-race">SKIP ⏩</button>
+      </div>
+    </div>
+
+    <!-- 📱 바텀시트 모달 (Slide 1, 2, 3) -->
+    <div id="bottom-sheet" class="bottom-sheet">
+      <div id="bottom-sheet-handle" class="bottom-sheet-handle">
+        <div class="handle-bar"></div>
+      </div>
+
+      <div class="panel-body">
+        <div class="slider-container">
+          <div id="slider-wrapper" class="slider-wrapper">
+            
+            <!-- 슬라이드 패널 1: 슬랙메시지 분석 및 소환 제어 -->
+            <div class="slide-panel" id="slide-1">
+              <header class="panel-header">
+                <div class="logo-row">
+                  <div class="logo">
+                    <span class="emoji-logo">🌱</span>
+                    <h1>Slack Meadow</h1>
+                  </div>
+                </div>
+                <p class="panel-subtitle">이모지 반응자를 분석해 무작위 추첨을 시작해보세요.</p>
+              </header>
+
+              <!-- 1. 분석 입력창 -->
+              <section class="panel-card input-card">
+                <h3>슬랙 링크 분석</h3>
+                <form id="analyzer-form">
+                  <div class="form-group input-with-btn">
+                    <input 
+                      type="url" 
+                      id="slack-url" 
+                      placeholder="슬랙 메시지 링크 입력..." 
+                      required
+                    >
+                    <button type="button" id="btn-paste-clip" class="btn-paste-clip" title="클립보드 링크 붙여넣기">
+                      📋 붙여넣기
+                    </button>
+                  </div>
+                  <button type="submit" id="submit-btn" class="btn-primary">
+                    <span class="btn-text">이모지 가져오기</span>
+                    <div class="spinner hidden"></div>
+                  </button>
+                </form>
+                <div id="status-container" class="status-container hidden">
+                  <div id="status-message" class="status-message"></div>
+                </div>
+              </section>
+
+              <!-- 2. 분석 결과 (이모지 및 반응자 / 미반응자) -->
+              <section id="result-section" class="panel-card result-card hidden">
+                <div class="message-info">
+                  <div class="user-profile">
+                    <img id="message-avatar" src="" alt="Avatar" class="avatar">
+                    <div class="user-meta">
+                      <span id="message-author" class="username">작성자</span>
+                      <span id="message-time" class="timestamp">시간</span>
+                    </div>
+                  </div>
+                  <p id="message-text" class="message-content"></p>
+                </div>
+
+                <!-- 탭 메뉴 (이모지 vs 미반응자) -->
+                <div class="tab-menu-row">
+                  <button type="button" id="tab-btn-emojis" class="sub-tab-btn active">😃 이모지 반응자</button>
+                  <button type="button" id="tab-btn-unreacted" class="sub-tab-btn">🚨 미반응자 (<span id="unreacted-count-badge">0</span>명)</button>
+                </div>
+
+                <!-- 탭 1: 이모지 반응자 -->
+                <div id="tab-content-emojis">
+                  <div class="emoji-filters-header">
+                    <h4>이모지 선택</h4>
+                    <label class="select-all-wrapper">
+                      <input type="checkbox" id="select-all-emojis">
+                      <span>전체 선택</span>
+                    </label>
+                  </div>
+                  <div id="emoji-filter-chips" class="emoji-filter-chips"></div>
+
+                  <div id="selected-emoji-detail" class="selected-emoji-detail hidden">
+                    <div class="emoji-detail-header">
+                      <span id="detail-emoji-badge" class="emoji-badge">👍</span>
+                      <span id="detail-emoji-count" class="count-label">0명</span>
+                      <button id="add-to-feedback-btn" class="btn-success">추첨하기</button>
+                    </div>
+                    <div id="detail-user-list" class="detail-user-list"></div>
+                  </div>
+                </div>
+
+                <!-- 탭 2: 이모지 안 누른 미반응자 -->
+                <div id="tab-content-unreacted" class="hidden">
+                  <div class="unreacted-box">
+                    <div class="unreacted-top">
+                      <span>채널 참여자 중 반응을 달지 않은 유저입니다.</span>
+                      <div class="unreacted-btns">
+                        <button type="button" id="btn-copy-unreacted" class="btn-xs-green">📋 명단 복사</button>
+                        <button type="button" id="btn-summon-unreacted" class="btn-xs-indigo">🎰 추첨기에 추가</button>
+                      </div>
+                    </div>
+                    <div id="unreacted-user-list" class="unreacted-user-list"></div>
+                  </div>
+                </div>
+
+                <!-- 유저별 이모지 반응 현황 요약 -->
+                <div class="user-analysis-section">
+                  <button type="button" id="btn-toggle-user-analysis" class="btn-secondary-outline">
+                    📊 유저별 이모지 반응 목록 보기
+                  </button>
+                  
+                  <div id="user-analysis-panel" class="user-analysis-panel hidden">
+                    <div class="analysis-header-row">
+                      <span id="analysis-total-count" class="analysis-count-badge">총 0명</span>
+                      <button type="button" id="btn-copy-spaced-names" class="btn-success-sm">
+                        📋 이 명단 복사 (스페이스 구분)
+                      </button>
+                    </div>
+                    <div id="analysis-user-list" class="analysis-user-list"></div>
+                  </div>
+                </div>
+
+              </section>
+            </div>
+
+            <!-- 슬라이드 패널 2: 추첨 명단 및 무작위 추첨 설정 -->
+            <div class="slide-panel" id="slide-2">
+              <header class="slide-header-nav">
+                <button id="btn-prev-slide" class="btn-prev-slide">⬅️ 뒤로가기</button>
+              </header>
+
+              <section class="panel-card feedback-card">
+                <div class="feedback-card-header">
+                  <h3>추첨 명단</h3>
+                  <div class="header-actions">
+                    <button id="select-all-runners-btn" class="btn-action-xs">전체선택</button>
+                    <button id="delete-all-runners-btn" class="btn-action-xs btn-danger-xs">전체삭제</button>
+                    <button id="start-race-btn" class="btn-race hidden">🎰 추첨 시작!</button>
+                  </div>
+                </div>
+
+                <div class="game-mode-panel" id="game-mode-panel">
+                  <div class="mode-header-top">
+                    <span class="mode-title-tag">🎮 추첨 모드</span>
+                    <button type="button" id="btn-summon-channel-all" class="btn-channel-all">
+                      🌐 채널 전체로 돌리기
+                    </button>
+                  </div>
+                  <div class="mode-tab-row">
+                    <label class="mode-tab-label">
+                      <input type="radio" name="game-mode" value="podium" checked>
+                      <span class="mode-tab-btn">🏆 무작위 추첨</span>
+                    </label>
+                    <label class="mode-tab-label">
+                      <input type="radio" name="game-mode" value="group">
+                      <span class="mode-tab-btn">👥 조 짜기</span>
+                    </label>
+                  </div>
+                  
+                  <div class="mode-config-row">
+                    <div class="config-item" id="config-podium">
+                      <span class="config-label">당첨 인원 수</span>
+                      <input type="number" id="winner-count-input" min="1" max="20" value="1">
+                    </div>
+                    <div class="config-item hidden" id="config-group">
+                      <span class="config-label">나눌 조 개수</span>
+                      <input type="number" id="team-count-input" min="2" max="6" value="2">
+                    </div>
+                  </div>
+                </div>
+
+                <div id="feedback-list-container" class="feedback-list-container">
+                  <p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>
+                </div>
+              </section>
+            </div>
+
+            <!-- 슬라이드 패널 3: 최종 결과 -->
+            <div class="slide-panel" id="slide-3">
+              <section class="panel-card ranking-card">
+                <div class="ranking-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <h3 style="margin:0;">🎉 추첨 결과</h3>
+                  <button type="button" id="btn-copy-result-formatted" class="btn-success-sm">
+                    📋 명단 복사
+                  </button>
+                </div>
+                
+                <div id="ranking-list-view" class="ranking-list-view"></div>
+                <div id="group-ranking-view" class="group-ranking-view hidden"></div>
+
+                <div class="ranking-actions" style="display:flex;gap:8px;margin-top:14px;">
+                  <button id="ranking-retry-btn" class="btn-primary">
+                    <span class="btn-text">🎰 다음 당첨자 뽑기</span>
+                  </button>
+                  <button id="ranking-confirm-btn" class="btn-secondary-outline">확정 및 닫기</button>
+                </div>
+              </section>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vanilla Modular Architecture Scripts -->
+  <script src="js/emoji-map.js?v=3.0.0"></script>
+  <script src="js/api.js?v=3.0.0"></script>
+  <script src="js/lottery-engine.js?v=3.0.0"></script>
+  <script src="app.js?v=3.0.0"></script>
 </body>
 </html>

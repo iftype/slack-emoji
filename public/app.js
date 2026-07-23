@@ -2,10 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Elements
-  const loginScreen = document.getElementById('login-screen');
-  const loginForm = document.getElementById('login-form');
-
-  const mainScreen = document.getElementById('main-screen');
+  const mainScreen = document.querySelector('.meadow-canvas-full');
   const analyzerForm = document.getElementById('analyzer-form');
   const slackUrlInput = document.getElementById('slack-url');
   const submitBtn = document.getElementById('submit-btn');
@@ -57,6 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const groupRankingView = document.getElementById('group-ranking-view');
   const rankingConfirmBtn = document.getElementById('ranking-confirm-btn');
   const rankingRetryBtn = document.getElementById('ranking-retry-btn');
+  const btnCopyResultFormatted = document.getElementById('btn-copy-result-formatted');
 
   const selectAllEmojis = document.getElementById('select-all-emojis');
   const selectAllRunnersBtn = document.getElementById('select-all-runners-btn');
@@ -67,6 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const winnerCountInput = document.getElementById('winner-count-input');
   const teamCountInput = document.getElementById('team-count-input');
   const btnSummonChannelAll = document.getElementById('btn-summon-channel-all');
+  const btnPasteClip = document.getElementById('btn-paste-clip');
 
   const sliderWrapper = document.getElementById('slider-wrapper');
   const btnPrevSlide = document.getElementById('btn-prev-slide');
@@ -78,63 +77,51 @@ document.addEventListener('DOMContentLoaded', async () => {
   let customEmojiCache = {};
   let currentUnreactedUsers = [];
   let pickedWinners = [];
+  let lastGroupResult = null;
 
   // Init Main Screen
   loadMainMeadow();
 
   async function loadMainMeadow() {
-    mainScreen.classList.remove('hidden');
-    loginScreen.classList.add('hidden');
-
     customEmojiCache = await SlackApi.fetchCustomEmojis();
-    // 접속 시 이전 남아있던 명단을 자동 로드하지 않고 100% 클린 빈 룰렛 상태로 시작
     renderFeedbackList([]);
     renderRoulettePreview([]);
   }
 
-  // 🎛️ 바텀시트 접기/펼치기 핸들 클릭 이벤트 (요구사항 6)
+  // 🎛️ 바텀시트 접기/펼치기 핸들 클릭
   bottomSheetHandle.addEventListener('click', () => {
     bottomSheet.classList.toggle('collapsed');
   });
 
-  // 📋 클립보드 붙여넣기 헬퍼 (버튼 클릭 시만 수동 동작)
-  const btnPasteClip = document.getElementById('btn-paste-clip');
+  // 📋 수동 클립보드 붙여넣기 버튼 클릭 (자동 붙여넣기 100% 제거)
   if (btnPasteClip) {
-    btnPasteClip.addEventListener('click', checkClipboardAndAutoPaste);
-  }
-
-  async function checkClipboardAndAutoPaste() {
-    try {
-      if (navigator.clipboard && navigator.clipboard.readText) {
-        const text = await navigator.clipboard.readText();
-        if (text && text.includes('slack.com/archives/')) {
-          const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
-          if (match) {
-            slackUrlInput.value = match[0];
+    btnPasteClip.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const text = await navigator.clipboard.readText();
+          if (text && text.includes('slack.com/archives/')) {
+            const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
+            if (match) {
+              slackUrlInput.value = match[0];
+            }
           }
         }
+      } catch (e) {
+        alert('클립보드 접근 권한이 없습니다. 직접 붙여넣어주세요.');
       }
-    } catch (e) {
-      alert('클립보드 접근 권한이 없거나 지원되지 않습니다. 직접 붙여넣기를 이용해주세요.');
-    }
+    });
   }
 
-  // 🌐 요구사항 4: 채널 인원 전체 소환 버튼 (무작위 추첨 오른쪽 위)
+  // 🌐 채널 인원 전체 소환 버튼
   btnSummonChannelAll.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !currentAnalyzedMessage.channel) {
       alert('슬랙 링크를 먼저 분석해주시거나 채널 정보가 필요합니다!');
       return;
     }
-    // 미반응자 + 반응자 전체 병합 소환
     const allChannelUsers = [
       ...currentUnreactedUsers,
       ...(activeEmojiGroup ? activeEmojiGroup.users : [])
     ];
-    if (allChannelUsers.length === 0) {
-      alert('채널 인원을 불러올 수 없습니다.');
-      return;
-    }
-
     const updated = await SlackApi.saveFeedbackGroup(slackUrlInput.value.trim(), '', '🌐 채널 전체 인원', allChannelUsers);
     renderFeedbackList(updated);
     sliderWrapper.style.transform = 'translateX(-33.333%)';
@@ -208,7 +195,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Tabs Toggle
   tabBtnEmojis.addEventListener('click', () => {
     tabBtnEmojis.classList.add('active');
     tabBtnUnreacted.classList.remove('active');
@@ -251,36 +237,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     `).join('');
   }
 
-  selectAllEmojis.addEventListener('change', (e) => {
-    const isSelected = e.target.checked;
-    const chips = emojiFilterChips.querySelectorAll('.emoji-chip');
-    chips.forEach(chip => {
-      if (isSelected) chip.classList.add('selected');
-      else chip.classList.remove('selected');
-    });
-
-    if (isSelected && currentAnalyzedMessage && currentAnalyzedMessage.reactions) {
-      const allUsersMap = new Map();
-      currentAnalyzedMessage.reactions.forEach(r => {
-        r.users.forEach(u => allUsersMap.set(u.id, u));
-      });
-      activeEmojiGroup = {
-        name: '전체 선택',
-        count: allUsersMap.size,
-        users: Array.from(allUsersMap.values())
-      };
-      selectedEmojiDetail.classList.remove('hidden');
-      detailEmojiBadge.textContent = '🌟';
-      detailEmojiCount.textContent = `${allUsersMap.size}명 (모든 반응자)`;
-      detailUserList.innerHTML = activeEmojiGroup.users.map(u => `
-        <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f7;padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
-          <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
-          <span>${u.real_name || u.name}</span>
-        </div>
-      `).join('');
-    }
-  });
-
   addToFeedbackBtn.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !activeEmojiGroup) return;
     const updated = await SlackApi.saveFeedbackGroup(
@@ -292,11 +248,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderFeedbackList(updated);
     sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
-
-  async function refreshFeedbacks() {
-    const feedbacks = await SlackApi.fetchFeedbacks();
-    renderFeedbackList(feedbacks);
-  }
 
   function getUniqueActiveRunners() {
     const runnerMap = new Map();
@@ -310,7 +261,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return Array.from(runnerMap.values());
   }
 
-  // 요구사항 5: 룰렛 명단 렌더링 시 :two: 대신 2️⃣ 유니코드 이모지 아이콘 사용
   function renderFeedbackList(feedbacks) {
     currentFeedbacksData = feedbacks || [];
     if (currentFeedbacksData.length === 0) {
@@ -377,7 +327,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 🔀 Game Mode Switch Event
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
   gameModeRadios.forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -398,7 +347,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // 🎰 Start Lottery ONLY on explicit Button Click
   startRaceBtn.addEventListener('click', () => {
     runSingleLotterySpin();
   });
@@ -410,16 +358,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // 추첨 시작 시 바텀시트를 자동으로 슬림하게 접어 룰렛을 잘 보이게 처리 (요구사항 6)
     bottomSheet.classList.add('collapsed');
-
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
-    const elements = {
-      rouletteReelContainer,
-      groupBoxesGrid,
-      raceCommentary,
-      commentaryText
-    };
+    const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
 
     if (mode === 'podium') {
       LotteryEngine.pickSingleWinner(runners, elements, (winner) => {
@@ -437,39 +378,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
       LotteryEngine.startGroupDealer(runners, teamCount, elements, (m, teams) => {
+        lastGroupResult = teams;
         showFinalResultView('group', teams);
       });
     }
   }
 
-  btnSkipRace.addEventListener('click', () => {
-    if (!LotteryEngine.isRolling) return;
-    const runners = getUniqueActiveRunners();
-    const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
-    const winner = runners[Math.floor(Math.random() * runners.length)];
-    if (winner) {
-      pickedWinners.push(winner);
-      currentFeedbacksData.forEach(f => {
-        f.users.forEach(u => {
-          if (u.id === winner.id) u.done = true;
-        });
-      });
-      renderFeedbackList(currentFeedbacksData);
-    }
-    LotteryEngine.finishSingleWinner(winner, elements, () => {
-      showFinalResultView('podium', pickedWinners);
-    });
-  });
-
   function showFinalResultView(mode, resultData) {
     raceCommentary.classList.add('hidden');
-    bottomSheet.classList.remove('collapsed'); // 바텀시트 다시 펴짐
+    bottomSheet.classList.remove('collapsed');
     sliderWrapper.style.transform = 'translateX(-66.666%)';
 
     if (mode === 'podium') {
       rankingListView.classList.remove('hidden');
       groupRankingView.classList.add('hidden');
-      
       const remainingCount = getUniqueActiveRunners().length;
       rankingRetryBtn.querySelector('.btn-text').textContent = remainingCount > 0 
         ? `🎰 다음 당첨자 뽑기 (남은 ${remainingCount}명)` 
@@ -504,7 +426,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 요구사항 6: 결과 볼 때 확인 버튼 누르면 바텀시트 접힘
+  // 📋 팀 구성 명단 사용자 지정 포맷 복사 핸들러 (• 1팀: 찰리, 클라우디...)
+  btnCopyResultFormatted.addEventListener('click', () => {
+    const mode = document.querySelector('input[name="game-mode"]:checked').value;
+    if (mode === 'group' && lastGroupResult) {
+      const lines = lastGroupResult.map((team, idx) => {
+        const names = team.map(m => m.real_name || m.name).join(', ');
+        return `• ${idx + 1}팀: ${names}`;
+      });
+      const copyText = lines.join('\n');
+      navigator.clipboard.writeText(copyText);
+      alert('팀 구성 명단이 클립보드에 복사되었습니다!\n\n' + copyText);
+    } else if (pickedWinners.length > 0) {
+      const copyText = pickedWinners.map((w, idx) => `${idx + 1}등: ${w.real_name || w.name}`).join('\n');
+      navigator.clipboard.writeText(copyText);
+      alert('당첨자 명단이 클립보드에 복사되었습니다!');
+    }
+  });
+
   rankingConfirmBtn.addEventListener('click', () => {
     pickedWinners = [];
     sliderWrapper.style.transform = 'translateX(0%)';
@@ -512,7 +451,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderRoulettePreview(getUniqueActiveRunners());
   });
 
-  // 요구사항: 룰렛 다시돌릴 때 뒤로갔다 앞으로갔다 하지않고 즉시 회전!
   rankingRetryBtn.addEventListener('click', () => {
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     if (mode === 'podium') {
@@ -525,6 +463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
       const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
       LotteryEngine.startGroupDealer(runners, teamCount, elements, (m, teams) => {
+        lastGroupResult = teams;
         showFinalResultView('group', teams);
       });
     }
