@@ -1169,7 +1169,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     for (let [uid, state] of spawnedCharacters.entries()) {
       state.isDead = false;
       state.isFinished = false;
-      state.passedHurdles.clear();
       
       state.element.classList.remove('dead', 'focused');
       state.bodyElement.style.backgroundImage = `url(${transparentImages.run})`;
