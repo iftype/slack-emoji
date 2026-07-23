@@ -367,8 +367,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  // 🎰 연속 룰렛 당첨자 관리 배열
+  let pickedWinners = [];
+
   // 🎰 Start Lottery ONLY on explicit Button Click
   startRaceBtn.addEventListener('click', () => {
+    runSingleLotterySpin();
+  });
+
+  function runSingleLotterySpin() {
     const runners = getUniqueActiveRunners();
     if (runners.length === 0) {
       alert('추첨 대상 유저가 없습니다!');
@@ -384,28 +391,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     if (mode === 'podium') {
-      const winCount = Math.min(parseInt(winnerCountInput.value) || 1, runners.length);
-      LotteryEngine.startSlotLottery(runners, winCount, elements, showFinalResultView);
+      LotteryEngine.pickSingleWinner(runners, elements, (winner) => {
+        // 당첨자를 당첨 목록에 추가하고 다음 대상에서 제외
+        if (winner) {
+          pickedWinners.push(winner);
+          // 해당 유저를 done 상태로 설정하여 다음 추첨에서 제외
+          currentFeedbacksData.forEach(f => {
+            f.users.forEach(u => {
+              if (u.id === winner.id) u.done = true;
+            });
+          });
+          renderFeedbackList(currentFeedbacksData);
+        }
+        showFinalResultView('podium', pickedWinners);
+      });
     } else {
       const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
-      LotteryEngine.startGroupDealer(runners, teamCount, elements, showFinalResultView);
+      LotteryEngine.startGroupDealer(runners, teamCount, elements, (m, teams) => {
+        showFinalResultView('group', teams);
+      });
     }
-  });
+  }
 
   btnSkipRace.addEventListener('click', () => {
     if (!LotteryEngine.isRolling) return;
-    const mode = document.querySelector('input[name="game-mode"]:checked').value;
     const runners = getUniqueActiveRunners();
     const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
-
-    if (mode === 'podium') {
-      const winCount = Math.min(parseInt(winnerCountInput.value) || 1, runners.length);
-      const winners = [...runners].sort(() => Math.random() - 0.5).slice(0, winCount);
-      LotteryEngine.finishSlotLottery(winners, elements, showFinalResultView);
-    } else {
-      const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
-      LotteryEngine.startGroupDealer(runners, teamCount, elements, showFinalResultView);
+    const winner = runners[Math.floor(Math.random() * runners.length)];
+    if (winner) {
+      pickedWinners.push(winner);
+      currentFeedbacksData.forEach(f => {
+        f.users.forEach(u => {
+          if (u.id === winner.id) u.done = true;
+        });
+      });
+      renderFeedbackList(currentFeedbacksData);
     }
+    LotteryEngine.finishSingleWinner(winner, elements, () => {
+      showFinalResultView('podium', pickedWinners);
+    });
   });
 
   function showFinalResultView(mode, resultData) {
@@ -415,19 +439,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (mode === 'podium') {
       rankingListView.classList.remove('hidden');
       groupRankingView.classList.add('hidden');
+      
+      const remainingCount = getUniqueActiveRunners().length;
+      rankingRetryBtn.querySelector('.btn-text').textContent = remainingCount > 0 
+        ? `🎰 다음 당첨자 뽑기 (남은 ${remainingCount}명)` 
+        : '🎉 추첨 완료';
+
+      if (remainingCount === 0) {
+        rankingRetryBtn.disabled = true;
+      } else {
+        rankingRetryBtn.disabled = false;
+      }
+
       rankingListView.innerHTML = resultData.map((w, idx) => `
         <div class="winner-result-card">
           <span class="winner-rank-badge">${idx + 1}등</span>
           <img src="${w.avatar || 'https://via.placeholder.com/44'}" class="winner-avatar">
           <div class="winner-info">
             <div class="name">${w.real_name || w.name}</div>
-            <div style="font-size:12px;color:#64748b;">🎉 축하합니다!</div>
+            <div style="font-size:12px;color:#64748b;">🎉 축하합니다! (자동 중복제외 적용)</div>
           </div>
         </div>
       `).join('');
     } else {
       groupRankingView.classList.remove('hidden');
       rankingListView.classList.add('hidden');
+      rankingRetryBtn.querySelector('.btn-text').textContent = '다시 조 짜기';
+      rankingRetryBtn.disabled = false;
+
       groupRankingView.innerHTML = resultData.map((team, tIdx) => `
         <div class="panel-card" style="text-align:left;margin-bottom:8px;">
           <h4 style="color:var(--primary);margin-bottom:6px;">TEAM ${tIdx + 1} (${team.length}명)</h4>
@@ -444,7 +483,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   rankingRetryBtn.addEventListener('click', () => {
-    sliderWrapper.style.transform = 'translateX(-33.333%)';
+    const mode = document.querySelector('input[name="game-mode"]:checked').value;
+    if (mode === 'podium') {
+      const remainingRunners = getUniqueActiveRunners();
+      if (remainingRunners.length > 0) {
+        sliderWrapper.style.transform = 'translateX(0%)';
+        setTimeout(() => {
+          runSingleLotterySpin();
+        }, 300);
+      }
+    } else {
+      sliderWrapper.style.transform = 'translateX(-33.333%)';
+      const runners = getUniqueActiveRunners();
+      const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
+      const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
+      LotteryEngine.startGroupDealer(runners, teamCount, elements, (m, teams) => {
+        showFinalResultView('group', teams);
+      });
+    }
   });
 
   btnPrevSlide.addEventListener('click', () => {

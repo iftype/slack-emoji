@@ -1,24 +1,26 @@
-// Slack Meadow Lottery & Team Divider Engine
+// Slack Pick Studio Lottery & Team Divider Engine
 
 const LotteryEngine = {
   isRolling: false,
   rollAnimTimer: null,
   reelY: 0,
 
-  // 롤러 추첨 애니메이션 실행
-  startSlotLottery(runners, winCount, elements, onComplete) {
-    if (this.isRolling) return;
+  // 1명씩 쾌속 룰렛 추첨 (약 1.1초 쫄깃 애니메이션)
+  pickSingleWinner(runners, elements, onComplete) {
+    if (this.isRolling || !runners || runners.length === 0) return;
     this.isRolling = true;
 
     const { rouletteReelContainer, raceCommentary, commentaryText } = elements;
     raceCommentary.classList.remove('hidden');
-    commentaryText.textContent = '🎯 무작위 롤러 돌아가는 중...';
+    commentaryText.textContent = '🎰 룰렛 돌리는 중... 틱틱틱!';
 
-    const shuffled = [...runners].sort(() => Math.random() - 0.5);
-    const winners = shuffled.slice(0, winCount);
+    // 무작위 1명 당첨자 선정
+    const winnerIndex = Math.floor(Math.random() * runners.length);
+    const winner = runners[winnerIndex];
 
+    // 슬롯 릴 카드 바인딩
     let reelCardsHtml = '';
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 6; i++) {
       runners.forEach(u => {
         reelCardsHtml += `
           <div class="picker-card-2d">
@@ -31,7 +33,7 @@ const LotteryEngine = {
     rouletteReelContainer.innerHTML = reelCardsHtml;
 
     let startTime = Date.now();
-    let duration = 2500;
+    let duration = 1100; // 1.1초 쾌속 추첨
     const self = this;
 
     function rollLoop() {
@@ -40,39 +42,40 @@ const LotteryEngine = {
       let progress = elapsed / duration;
 
       if (progress < 1) {
-        let speed = Math.max(2, 30 * (1 - Math.pow(progress, 2)));
+        let speed = Math.max(3, 40 * (1 - Math.pow(progress, 2)));
         self.reelY -= speed;
-        if (Math.abs(self.reelY) > 1200) self.reelY = 0;
+        if (Math.abs(self.reelY) > 1000) self.reelY = 0;
         rouletteReelContainer.style.transform = `translateY(${self.reelY}px)`;
         self.rollAnimTimer = requestAnimationFrame(rollLoop);
       } else {
-        self.finishSlotLottery(winners, elements, onComplete);
+        self.finishSingleWinner(winner, elements, onComplete);
       }
     }
     rollLoop();
   },
 
-  finishSlotLottery(winners, elements, onComplete) {
+  finishSingleWinner(winner, elements, onComplete) {
     this.isRolling = false;
     if (this.rollAnimTimer) cancelAnimationFrame(this.rollAnimTimer);
     
     const { rouletteReelContainer, commentaryText } = elements;
-    commentaryText.textContent = `🎉 축하합니다! ${winners.length}명의 당첨자 선정!`;
+    commentaryText.textContent = `🎉 [${winner.real_name || winner.name}] 님 당첨!`;
 
-    rouletteReelContainer.innerHTML = winners.map(w => `
+    // 🎯 중앙 하이라이트 카드로 고정
+    rouletteReelContainer.innerHTML = `
       <div class="picker-card-2d winner-highlight">
-        <img src="${w.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-        <span class="card-name">🎉 ${w.real_name || w.name}</span>
+        <img src="${winner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
+        <span class="card-name">🎉 ${winner.real_name || winner.name}</span>
       </div>
-    `).join('');
+    `;
     rouletteReelContainer.style.transform = 'translateY(0px)';
 
     setTimeout(() => {
-      if (onComplete) onComplete('podium', winners);
-    }, 1200);
+      if (onComplete) onComplete(winner);
+    }, 800);
   },
 
-  // 조 짜기 (팀 나누기) 실행 - 버튼 클릭 시에만 실행!
+  // 조 짜기 (팀 나누기) 쾌속 분배
   startGroupDealer(runners, teamCount, elements, onComplete) {
     if (this.isRolling) return;
     this.isRolling = true;
@@ -101,7 +104,7 @@ const LotteryEngine = {
     setTimeout(() => {
       self.isRolling = false;
       if (onComplete) onComplete('group', teams);
-    }, 1200);
+    }, 900);
   },
 
   stopAll() {
