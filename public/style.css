@@ -150,19 +150,57 @@ body {
 .btn-primary {
   width: 100%;
   padding: 13px;
-  background: var(--primary);
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  box-shadow: 0 4px 12px var(--primary-glow);
-  transition: var(--transition-smooth);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+  transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 12px;
+  padding: 7px 16px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s;
+}
+
+.btn-success:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(16, 185, 129, 0.35);
+}
+
+.btn-prev-slide {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 6px 14px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
+}
+
+.btn-prev-slide:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 /* 🍀 모바일 화면 전체를 뒤덮는 화이트 2D 초원 캔버스 */
