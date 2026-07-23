@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const chip = document.createElement('div');
       chip.className = 'emoji-chip';
       chip.dataset.emojiName = r.name;
-      chip.innerHTML = `<span class="chip-icon">${renderEmojiIcon(r.name)}</span> <span class="chip-name">:${r.name}:</span> <span class="chip-count">${r.count}</span>`;
+      chip.innerHTML = `<span class="chip-icon">${renderEmojiIcon(r.name)}</span> <span class="chip-count">${r.count}</span>`;
 
       chip.addEventListener('click', () => {
         chip.classList.toggle('selected');
