@@ -3,3 +3,4 @@ config.json
 feedbacks.json
 .env
 .DS_Store
+.vercel

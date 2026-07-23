@@ -1,11 +1,11 @@
 /* ====================================================
-   Slack Meadow & Chzzk Pick Studio Master Stylesheet
+   Slack Meadow (2D Pick Studio) Master Stylesheet
    ==================================================== */
 
 :root {
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --primary-glow: rgba(99, 102, 241, 0.35);
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-glow: rgba(79, 70, 229, 0.25);
   --success: #10b981;
   --danger: #ef4444;
   --warning: #f59e0b;
@@ -14,8 +14,6 @@
   --card-border: rgba(255, 255, 255, 0.08);
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --chzzk-green: #00ffa3;
-  --chzzk-neon: #00e5ff;
 }
 
 * {
@@ -44,7 +42,7 @@ body {
   background: #000;
   border-radius: 40px;
   padding: 12px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(79, 70, 229, 0.2);
   position: relative;
 }
 
@@ -95,12 +93,6 @@ body {
   font-size: 54px;
   display: block;
   margin-bottom: 12px;
-  animation: pulseLogo 2s infinite ease-in-out;
-}
-
-@keyframes pulseLogo {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
 }
 
 .login-header h2 {
@@ -166,39 +158,44 @@ body {
   transform: scale(0.98);
 }
 
-/* 🎰 상단 비주얼 영역: 치지직 추첨기 / 조짜기 네온 릴 스튜디오 */
-.picker-canvas-full {
+/* 🍀 모바일 화면 전체를 뒤덮는 화이트/그린 2D 초원 캔버스 */
+.meadow-canvas-full {
   width: 100%;
   height: 60%;
-  background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+  background: #ffffff;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1.5px solid rgba(29, 29, 31, 0.15);
 }
 
-.studio-bg-glow {
+.parallax-trees-container {
   position: absolute;
-  width: 250px;
-  height: 250px;
-  background: radial-gradient(circle, rgba(0, 255, 163, 0.15) 0%, rgba(99, 102, 241, 0) 70%);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  animation: glowPulse 3s infinite alternate;
 }
 
-@keyframes glowPulse {
-  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }
-  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+.parallax-tree {
+  position: absolute;
+  font-size: 26px;
+  opacity: 0.25;
 }
 
-/* 🎰 1. 슬롯머신 릴 스테이지 */
-.slot-machine-stage {
+.tree-1 { top: 15px; left: 20px; }
+.tree-2 { top: 40px; right: 30px; }
+.tree-3 { bottom: 60px; left: 45px; }
+.tree-4 { bottom: 80px; right: 50px; }
+.tree-5 { top: 100px; left: 45%; }
+.tree-6 { bottom: 30px; left: 70%; }
+
+/* 🎯 2D 초원 중앙 룰렛 추첨기 스테이지 */
+.roulette-stage, .group-dealer-stage {
   width: 88%;
   display: flex;
   flex-direction: column;
@@ -206,64 +203,56 @@ body {
   z-index: 10;
 }
 
-.slot-header-tag {
-  font-family: 'Black Han Sans', 'Outfit', sans-serif;
-  font-size: 14px;
-  letter-spacing: 2px;
-  color: var(--chzzk-green);
-  text-shadow: 0 0 10px rgba(0, 255, 163, 0.6);
-  margin-bottom: 10px;
-  background: rgba(0, 255, 163, 0.1);
-  padding: 4px 16px;
+.roulette-title-badge {
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #1e293b;
+  background: #f1f5f9;
+  padding: 4px 14px;
   border-radius: 20px;
-  border: 1px solid rgba(0, 255, 163, 0.3);
+  border: 1.5px solid rgba(29, 29, 31, 0.2);
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-.slot-reel-window {
+.roulette-window-2d {
   width: 100%;
-  height: 180px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 2px solid rgba(0, 229, 255, 0.4);
+  height: 170px;
+  background: #f8fafc;
+  border: 1.5px solid rgba(29, 29, 31, 0.22);
   border-radius: 20px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 229, 255, 0.15);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
-/* 🎯 중앙 골든 링 포인터 */
-.golden-target-frame {
+.target-line-2d {
   position: absolute;
   top: 50%;
   left: 0;
   width: 100%;
-  height: 64px;
+  height: 56px;
   transform: translateY(-50%);
-  border-top: 2px solid #fbbf24;
-  border-bottom: 2px solid #fbbf24;
-  background: rgba(251, 191, 36, 0.12);
+  border-top: 2px solid #4f46e5;
+  border-bottom: 2px solid #4f46e5;
+  background: rgba(79, 70, 229, 0.08);
   pointer-events: none;
   z-index: 20;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 8px;
-  box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+  padding: 0 10px;
 }
 
-.target-pointer {
-  color: #fbbf24;
-  font-size: 14px;
-  animation: pointerBlink 1s infinite alternate;
+.target-line-2d .arrow-left, .target-line-2d .arrow-right {
+  color: #4f46e5;
+  font-size: 13px;
+  font-weight: 900;
 }
 
-@keyframes pointerBlink {
-  0% { opacity: 0.5; }
-  100% { opacity: 1; transform: scale(1.2); }
-}
-
-/* 틱틱틱 스크롤 릴 컨테이너 */
-.slot-reel-container {
+.roulette-reel-container {
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -271,123 +260,84 @@ body {
   position: absolute;
   top: 58px;
   left: 0;
-  transition: transform 0.05s linear;
 }
 
-.slot-card-item {
+.picker-card-2d {
   width: 90%;
-  height: 60px;
+  height: 52px;
   margin: 2px 0;
-  background: rgba(30, 41, 59, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1.5px solid rgba(29, 29, 31, 0.15);
   border-radius: 14px;
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  gap: 12px;
+  padding: 0 14px;
+  gap: 10px;
   flex-shrink: 0;
-  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
-.slot-card-item.winner-active {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(245, 158, 11, 0.4));
-  border: 2px solid #fbbf24;
-  transform: scale(1.04);
-  box-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+.picker-card-2d.winner-highlight {
+  background: #eef2ff;
+  border: 2px solid #4f46e5;
+  transform: scale(1.03);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
 }
 
-.slot-card-item .card-avatar {
-  width: 38px;
-  height: 38px;
+.picker-card-2d .card-avatar {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   object-fit: cover;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.slot-card-item .card-icon {
-  font-size: 24px;
-}
-
-.slot-card-item .card-name {
-  font-size: 15px;
+.picker-card-2d .card-name {
+  font-size: 14px;
   font-weight: 700;
-  color: #fff;
+  color: #1e293b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* 🎴 2. 조짜기 카드 딜러 스테이지 */
-.group-dealer-stage {
-  width: 92%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 10;
-}
-
-.dealer-header-tag {
-  font-family: 'Black Han Sans', 'Outfit', sans-serif;
-  font-size: 14px;
-  letter-spacing: 2px;
-  color: var(--chzzk-neon);
-  text-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
-  margin-bottom: 10px;
-  background: rgba(0, 229, 255, 0.1);
-  padding: 4px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(0, 229, 255, 0.3);
-}
-
+/* 🎴 조짜기 카드 프레임 */
 .group-boxes-grid {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  max-height: 200px;
+  gap: 8px;
+  max-height: 190px;
   overflow-y: auto;
 }
 
 .group-team-box {
-  background: rgba(30, 41, 59, 0.85);
-  border: 1.5px solid rgba(99, 102, 241, 0.4);
+  background: #ffffff;
+  border: 1.5px solid rgba(29, 29, 31, 0.2);
   border-radius: 14px;
   padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .group-team-box .team-title {
   font-size: 12px;
-  font-weight: 700;
-  color: var(--chzzk-neon);
+  font-weight: 800;
+  color: #4f46e5;
   display: flex;
   justify-content: space-between;
 }
 
-.group-team-box .team-members {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
 .group-member-pill {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 8px;
-  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 3px 8px;
+  border-radius: 8px;
   font-size: 11px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes popIn {
-  0% { transform: scale(0); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  font-weight: 600;
+  color: #334155;
 }
 
 /* 🎙️ 중계 자막 바 & 스킵 버튼 */
@@ -395,15 +345,15 @@ body {
   position: absolute;
   bottom: 12px;
   width: 90%;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1.5px solid rgba(29, 29, 31, 0.2);
   border-radius: 20px;
   padding: 8px 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 30;
-  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .commentary-content-row {
@@ -414,24 +364,19 @@ body {
 
 .commentary-text {
   font-size: 13px;
-  font-weight: 600;
-  color: #f1f5f9;
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .btn-skip-race {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-skip-race:hover {
-  background: rgba(239, 68, 68, 0.4);
 }
 
 /* 🎛️ 하단 슬라이딩 바텀 시트 */
@@ -536,7 +481,7 @@ body {
 }
 
 /* 탭 메뉴 */
-.analysis-tab-menu {
+.tab-menu-row {
   display: flex;
   gap: 6px;
   margin-bottom: 12px;
@@ -544,7 +489,7 @@ body {
   padding-bottom: 8px;
 }
 
-.tab-btn {
+.sub-tab-btn {
   flex: 1;
   padding: 8px;
   background: rgba(255, 255, 255, 0.04);
@@ -554,11 +499,10 @@ body {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.tab-btn.active {
-  background: rgba(99, 102, 241, 0.2);
+.sub-tab-btn.active {
+  background: rgba(79, 70, 229, 0.2);
   border-color: var(--primary);
   color: #fff;
 }
@@ -597,7 +541,6 @@ body {
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .emoji-chip.selected {
@@ -607,45 +550,44 @@ body {
 }
 
 /* 미반응자 탭 */
-.unreacted-header-row {
-  margin-bottom: 10px;
+.unreacted-box {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 10px;
 }
 
-.unreacted-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.unreacted-actions {
+.unreacted-top {
   display: flex;
-  gap: 6px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
-.btn-success-sm, .btn-primary-sm {
-  padding: 6px 12px;
-  border-radius: 8px;
+.unreacted-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-xs-green, .btn-xs-indigo {
+  padding: 4px 8px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
   border: none;
+  color: #fff;
   cursor: pointer;
 }
 
-.btn-success-sm {
-  background: var(--success);
-  color: #fff;
-}
-
-.btn-primary-sm {
-  background: var(--primary);
-  color: #fff;
-}
+.btn-xs-green { background: var(--success); }
+.btn-xs-indigo { background: var(--primary); }
 
 .unreacted-user-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 150px;
+  gap: 4px;
+  max-height: 140px;
   overflow-y: auto;
 }
 
@@ -654,14 +596,14 @@ body {
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 8px;
   font-size: 12px;
 }
 
 .unreacted-user-item img {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
 }
 
@@ -694,15 +636,15 @@ body {
 }
 
 .btn-race {
-  background: linear-gradient(135deg, var(--chzzk-green), #059669);
-  color: #0f172a;
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  color: #fff;
   border: none;
   padding: 6px 14px;
   border-radius: 10px;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 12px;
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 255, 163, 0.4);
+  box-shadow: 0 4px 12px var(--primary-glow);
 }
 
 .game-mode-panel {
@@ -736,7 +678,6 @@ body {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  transition: all 0.2s;
 }
 
 .mode-tab-label input:checked + .mode-tab-btn {
@@ -774,32 +715,29 @@ body {
 }
 
 /* 👑 결과 패널 */
-.result-ranking-card {
-  text-align: center;
-}
-
 .winner-result-card {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.25));
-  border: 2px solid #fbbf24;
+  background: #ffffff;
+  border: 1.5px solid rgba(29, 29, 31, 0.2);
   border-radius: 16px;
   padding: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   gap: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .winner-rank-badge {
-  font-size: 24px;
-  font-weight: 900;
-  color: #fbbf24;
+  font-size: 20px;
+  font-weight: 800;
+  color: #4f46e5;
 }
 
 .winner-avatar {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 2px solid #fbbf24;
+  border: 1.5px solid #4f46e5;
 }
 
 .winner-info {
@@ -807,9 +745,9 @@ body {
 }
 
 .winner-info .name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
-  color: #fff;
+  color: #1e293b;
 }
 
 .result-action-row {

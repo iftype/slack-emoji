@@ -50,8 +50,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const loginTokenInput = document.getElementById('login-token');
   const loginCookieGroup = document.getElementById('login-cookie-group');
   const loginCookieInput = document.getElementById('login-cookie');
-  const loginStatus = document.getElementById('login-status');
-  const loginStatusMsg = document.getElementById('login-status-message');
 
   const mainScreen = document.getElementById('main-screen');
   const analyzerForm = document.getElementById('analyzer-form');
@@ -94,9 +92,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bottomSheet = document.getElementById('bottom-sheet');
   const bottomSheetHandle = document.getElementById('bottom-sheet-handle');
 
-  // 🎰 추첨기 무대 & 컨트롤
-  const slotMachineStage = document.getElementById('slot-machine-stage');
-  const slotReelContainer = document.getElementById('slot-reel-container');
+  // 🎰 2D 추첨 무대 & 조짜기
+  const rouletteStage = document.getElementById('roulette-stage');
+  const rouletteReelContainer = document.getElementById('roulette-reel-container');
   const groupDealerStage = document.getElementById('group-dealer-stage');
   const groupBoxesGrid = document.getElementById('group-boxes-grid');
 
@@ -104,7 +102,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const raceCommentary = document.getElementById('race-commentary');
   const commentaryText = document.getElementById('commentary-text');
   const btnSkipRace = document.getElementById('btn-skip-race');
-  const raceCountdown = document.getElementById('race-countdown');
 
   // 결과창
   const rankingListView = document.getElementById('ranking-list-view');
@@ -116,7 +113,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const selectAllRunnersBtn = document.getElementById('select-all-runners-btn');
   const deleteAllRunnersBtn = document.getElementById('delete-all-runners-btn');
 
-  const gameModePanel = document.getElementById('game-mode-panel');
   const configPodium = document.getElementById('config-podium');
   const configGroup = document.getElementById('config-group');
   const winnerCountInput = document.getElementById('winner-count-input');
@@ -136,7 +132,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isRolling = false;
   let rollAnimTimer = null;
   let reelY = 0;
-  let rollSpeed = 25;
 
   /* ====================================================
      1. 로그인 스킵 / 세션 체크
@@ -262,14 +257,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const item = document.createElement('div');
       item.className = 'unreacted-user-item';
       item.innerHTML = `
-        <img src="${u.avatar || 'https://via.placeholder.com/24'}" alt="${u.real_name}">
-        <span class="uname">${u.real_name || u.name}</span>
+        <img src="${u.avatar || 'https://via.placeholder.com/22'}" alt="${u.real_name}">
+        <span>${u.real_name || u.name}</span>
       `;
       unreactedUserList.appendChild(item);
     });
   }
 
-  // 탭 바꾸기
+  // 탭 전환
   tabBtnEmojis.addEventListener('click', () => {
     tabBtnEmojis.classList.add('active');
     tabBtnUnreacted.classList.remove('active');
@@ -313,8 +308,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     detailEmojiCount.textContent = `${reactionData.users.length}명`;
 
     detailUserList.innerHTML = reactionData.users.map(u => `
-      <div class="user-chip">
-        <img src="${u.avatar || 'https://via.placeholder.com/20'}" class="user-chip-avatar">
+      <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
+        <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
         <span>${u.real_name || u.name}</span>
       </div>
     `).join('');
@@ -341,8 +336,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       detailEmojiBadge.textContent = '🌟';
       detailEmojiCount.textContent = `${allUsersMap.size}명 (모든 반응자)`;
       detailUserList.innerHTML = activeEmojiGroup.users.map(u => `
-        <div class="user-chip">
-          <img src="${u.avatar || 'https://via.placeholder.com/20'}" class="user-chip-avatar">
+        <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
+          <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
           <span>${u.real_name || u.name}</span>
         </div>
       `).join('');
@@ -379,7 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ====================================================
-     3. 추첨 명단 관리 및 🎰 치지직 룰렛 추첨 엔진
+     3. 추첨 명단 관리 및 무작위 추첨 롤러 엔진
      ==================================================== */
   async function loadFeedbacks(skipSync = false) {
     try {
@@ -409,25 +404,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentFeedbacksData.length === 0) {
       document.getElementById('feedback-list-container').innerHTML = '<p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
       startRaceBtn.classList.add('hidden');
-      renderSlotReelPreview([]);
+      renderRoulettePreview([]);
       return;
     }
 
     startRaceBtn.classList.remove('hidden');
     const uniqueRunners = getUniqueActiveRunners();
-    renderSlotReelPreview(uniqueRunners);
+    renderRoulettePreview(uniqueRunners);
 
     let html = '';
     currentFeedbacksData.forEach(f => {
       html += `
-        <div class="feedback-group-item">
-          <div class="group-title">
+        <div class="feedback-group-item" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px;margin-bottom:8px;">
+          <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
             <span>:${f.emoji}: (${f.users.length}명)</span>
             <button class="btn-danger-xs" onclick="deleteGroup('${f.messageLink}', '${f.emoji}')">삭제</button>
           </div>
-          <div class="group-users">
+          <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
             ${f.users.map(u => `
-              <span class="user-tag ${u.done ? 'excluded' : ''}">${u.real_name || u.name}</span>
+              <span class="user-tag" style="font-size:11px;background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:6px;">${u.real_name || u.name}</span>
             `).join('')}
           </div>
         </div>
@@ -436,13 +431,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('feedback-list-container').innerHTML = html;
   }
 
-  function renderSlotReelPreview(runners) {
-    slotReelContainer.innerHTML = '';
+  function renderRoulettePreview(runners) {
+    rouletteReelContainer.innerHTML = '';
     if (!runners || runners.length === 0) {
-      slotReelContainer.innerHTML = `
-        <div class="slot-card-item empty-card">
-          <span class="card-icon">🎰</span>
-          <span class="card-name">참가자를 소환해주세요!</span>
+      rouletteReelContainer.innerHTML = `
+        <div class="picker-card-2d empty-card">
+          <span class="card-avatar-text">🌱</span>
+          <span class="card-name">명단을 소환해 보세요!</span>
         </div>
       `;
       return;
@@ -450,39 +445,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     runners.forEach(u => {
       const card = document.createElement('div');
-      card.className = 'slot-card-item';
+      card.className = 'picker-card-2d';
       card.innerHTML = `
-        <img src="${u.avatar || 'https://via.placeholder.com/38'}" class="card-avatar">
+        <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
         <span class="card-name">${u.real_name || u.name}</span>
       `;
-      slotReelContainer.appendChild(card);
+      rouletteReelContainer.appendChild(card);
     });
   }
 
-  // 추첨 모드 탭 전환
+  // 모드 전환
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
   gameModeRadios.forEach(radio => {
     radio.addEventListener('change', (e) => {
       if (e.target.value === 'group') {
         configPodium.classList.add('hidden');
         configGroup.classList.remove('hidden');
-        slotMachineStage.classList.add('hidden');
+        rouletteStage.classList.add('hidden');
         groupDealerStage.classList.remove('hidden');
       } else {
         configGroup.classList.add('hidden');
         configPodium.classList.remove('hidden');
         groupDealerStage.classList.add('hidden');
-        slotMachineStage.classList.remove('hidden');
+        rouletteStage.classList.remove('hidden');
       }
     });
   });
 
   /* ====================================================
-     4. 🎰 치지직 룰렛 추첨 애니메이션 실행기
+     4. 무작위 추첨 애니메이션
      ==================================================== */
-  startRaceBtn.addEventListener('click', runChzzkLottery);
+  startRaceBtn.addEventListener('click', runLotteryAnimation);
 
-  function runChzzkLottery() {
+  function runLotteryAnimation() {
     const runners = getUniqueActiveRunners();
     if (runners.length === 0) {
       alert('추첨 대상 유저가 없습니다!');
@@ -495,36 +490,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (mode === 'podium') {
       const winCount = Math.min(parseInt(winnerCountInput.value) || 1, runners.length);
-      startSlotRollAnimation(runners, winCount);
+      startReelRollAnimation(runners, winCount);
     } else {
       const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
-      startGroupDealerAnimation(runners, teamCount);
+      startGroupDivideAnimation(runners, teamCount);
     }
   }
 
-  function startSlotRollAnimation(runners, winCount) {
-    commentaryText.textContent = '🎰 치지직 룰렛 돌리는 중... 틱틱틱!';
-    
-    // 무작위 셔플로 당첨자 선정
+  function startReelRollAnimation(runners, winCount) {
+    commentaryText.textContent = '🎯 무작위 롤러 돌아가는 중...';
     const shuffled = [...runners].sort(() => Math.random() - 0.5);
     const winners = shuffled.slice(0, winCount);
 
-    // 슬롯 릴 구성 (반복 순환 카드 생성)
     let reelCardsHtml = '';
     for (let i = 0; i < 8; i++) {
       runners.forEach(u => {
         reelCardsHtml += `
-          <div class="slot-card-item">
-            <img src="${u.avatar || 'https://via.placeholder.com/38'}" class="card-avatar">
+          <div class="picker-card-2d">
+            <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
             <span class="card-name">${u.real_name || u.name}</span>
           </div>
         `;
       });
     }
-    slotReelContainer.innerHTML = reelCardsHtml;
+    rouletteReelContainer.innerHTML = reelCardsHtml;
 
     let startTime = Date.now();
-    let duration = 3000; // 3초 애니메이션
+    let duration = 2500;
 
     function rollLoop() {
       if (!isRolling) return;
@@ -532,41 +524,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       let progress = elapsed / duration;
 
       if (progress < 1) {
-        // 감속 물리
-        let speed = Math.max(2, 35 * (1 - Math.pow(progress, 2)));
+        let speed = Math.max(2, 30 * (1 - Math.pow(progress, 2)));
         reelY -= speed;
-        if (Math.abs(reelY) > 1500) reelY = 0;
-        slotReelContainer.style.transform = `translateY(${reelY}px)`;
+        if (Math.abs(reelY) > 1200) reelY = 0;
+        rouletteReelContainer.style.transform = `translateY(${reelY}px)`;
         rollAnimTimer = requestAnimationFrame(rollLoop);
       } else {
-        // 멈춤 및 당첨 카드 하이라이트
-        finishSlotLottery(winners);
+        finishReelLottery(winners);
       }
     }
     rollLoop();
   }
 
-  function finishSlotLottery(winners) {
+  function finishReelLottery(winners) {
     isRolling = false;
     cancelAnimationFrame(rollAnimTimer);
-    commentaryText.textContent = `🎉 축하합니다! ${winners.length}명의 당첨자 탄생!`;
+    commentaryText.textContent = `🎉 축하합니다! ${winners.length}명의 당첨자 선정!`;
 
-    // 당첨자 릴 표시
-    slotReelContainer.innerHTML = winners.map(w => `
-      <div class="slot-card-item winner-active">
-        <img src="${w.avatar || 'https://via.placeholder.com/38'}" class="card-avatar">
+    rouletteReelContainer.innerHTML = winners.map(w => `
+      <div class="picker-card-2d winner-highlight">
+        <img src="${w.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
         <span class="card-name">🎉 ${w.real_name || w.name}</span>
       </div>
     `).join('');
-    slotReelContainer.style.transform = 'translateY(0px)';
+    rouletteReelContainer.style.transform = 'translateY(0px)';
 
     setTimeout(() => {
       showFinalResultView('podium', winners);
-    }, 1500);
+    }, 1200);
   }
 
-  function startGroupDealerAnimation(runners, teamCount) {
-    commentaryText.textContent = '🎴 팀 카드를 분배하는 중...';
+  function startGroupDivideAnimation(runners, teamCount) {
+    commentaryText.textContent = '👥 무작위 조 구성 중...';
     const shuffled = [...runners].sort(() => Math.random() - 0.5);
     const teams = Array.from({ length: teamCount }, () => []);
 
@@ -577,7 +566,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     groupBoxesGrid.innerHTML = teams.map((team, tIdx) => `
       <div class="group-team-box">
         <div class="team-title"><span>TEAM ${tIdx + 1}</span> <span>${team.length}명</span></div>
-        <div class="team-members">
+        <div class="team-members" style="display:flex;flex-wrap:wrap;gap:4px;">
           ${team.map(m => `<span class="group-member-pill">${m.real_name || m.name}</span>`).join('')}
         </div>
       </div>
@@ -585,7 +574,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setTimeout(() => {
       showFinalResultView('group', teams);
-    }, 1500);
+    }, 1200);
   }
 
   btnSkipRace.addEventListener('click', () => {
@@ -595,10 +584,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (mode === 'podium') {
       const winCount = Math.min(parseInt(winnerCountInput.value) || 1, runners.length);
       const winners = [...runners].sort(() => Math.random() - 0.5).slice(0, winCount);
-      finishSlotLottery(winners);
+      finishReelLottery(winners);
     } else {
       const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
-      startGroupDealerAnimation(runners, teamCount);
+      startGroupDivideAnimation(runners, teamCount);
     }
   });
 
@@ -612,10 +601,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       rankingListView.innerHTML = resultData.map((w, idx) => `
         <div class="winner-result-card">
           <span class="winner-rank-badge">${idx + 1}등</span>
-          <img src="${w.avatar || 'https://via.placeholder.com/48'}" class="winner-avatar">
+          <img src="${w.avatar || 'https://via.placeholder.com/44'}" class="winner-avatar">
           <div class="winner-info">
             <div class="name">${w.real_name || w.name}</div>
-            <div style="font-size:12px;color:#94a3b8;">🎉 당첨을 축하합니다!</div>
+            <div style="font-size:12px;color:#64748b;">🎉 축하합니다!</div>
           </div>
         </div>
       `).join('');
@@ -624,7 +613,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       rankingListView.classList.add('hidden');
       groupRankingView.innerHTML = resultData.map((team, tIdx) => `
         <div class="panel-card" style="text-align:left;margin-bottom:8px;">
-          <h4 style="color:#00e5ff;margin-bottom:6px;">TEAM ${tIdx + 1} (${team.length}명)</h4>
+          <h4 style="color:#4f46e5;margin-bottom:6px;">TEAM ${tIdx + 1} (${team.length}명)</h4>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
             ${team.map(m => `<span class="group-member-pill">${m.real_name || m.name}</span>`).join('')}
           </div>
@@ -639,7 +628,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   rankingRetryBtn.addEventListener('click', () => {
     sliderWrapper.style.transform = 'translateX(-33.333%)';
-    runChzzkLottery();
+    runLotteryAnimation();
   });
 
   btnPrevSlide.addEventListener('click', () => {
