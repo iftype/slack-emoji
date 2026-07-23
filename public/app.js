@@ -504,11 +504,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 요구사항 6: 결과 볼 때 확인 버튼 누르면 바텀시트 접힘
   rankingConfirmBtn.addEventListener('click', () => {
+    pickedWinners = [];
     sliderWrapper.style.transform = 'translateX(0%)';
     bottomSheet.classList.add('collapsed');
+    renderRoulettePreview(getUniqueActiveRunners());
   });
 
-  // 요구사항 2: 룰렛 다시돌릴 때 뒤로갔다 앞으로갔다 하지않고 즉시 회전!
+  // 요구사항: 룰렛 다시돌릴 때 뒤로갔다 앞으로갔다 하지않고 즉시 회전!
   rankingRetryBtn.addEventListener('click', () => {
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     if (mode === 'podium') {
@@ -533,10 +535,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   deleteAllRunnersBtn.addEventListener('click', async () => {
     if (confirm('소환된 명단을 모두 삭제하시겠습니까?')) {
       pickedWinners = [];
-      for (const f of currentFeedbacksData) {
+      for (const f of [...currentFeedbacksData]) {
         await SlackApi.deleteFeedbackGroup(f.messageLink, f.emoji);
       }
-      refreshFeedbacks();
+      currentFeedbacksData = [];
+      renderFeedbackList([]);
+      renderRoulettePreview([]);
+      alert('추첨 명단이 완전히 삭제되었습니다.');
     }
   });
 
