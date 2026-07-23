@@ -458,7 +458,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const activeToken = localStorage.getItem('slack_emoji_analyzer_token');
   const activeCookie = localStorage.getItem('slack_emoji_analyzer_cookie');
 
-  if (activeToken) {
+  // 서버에 토큰이 설정되어 있으면 로그인 스킵
+  let serverHasToken = false;
+  try {
+    const statusRes = await fetch(`${getApiBase()}/api/server-token-status`);
+    const statusData = await statusRes.json();
+    serverHasToken = statusData.hasServerToken;
+  } catch (e) { /* 서버 연결 실패 시 일반 로그인 진행 */ }
+
+  if (serverHasToken) {
+    // 서버 토큰으로 자동 로그인
+    loadMainMeadow('server-managed', '');
+  } else if (activeToken) {
     loadMainMeadow(activeToken, activeCookie || '');
   } else {
     loginScreen.classList.remove('hidden');
