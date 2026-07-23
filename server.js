@@ -341,6 +341,7 @@ app.post('/api/analyze', async (req, res) => {
 
 // [피드백 관리 API]
 app.get('/api/feedbacks', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.json({ ok: true, feedbacks: loadFeedbacks() });
 });
 

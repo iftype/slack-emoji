@@ -47,7 +47,9 @@ const SlackApi = {
 
   async fetchFeedbacks() {
     try {
-      const res = await fetch(`${getApiBase()}/api/feedbacks`);
+      const res = await fetch(`${getApiBase()}/api/feedbacks?_t=${Date.now()}`, {
+        cache: 'no-store'
+      });
       const data = await res.json();
       return (data.ok) ? data.feedbacks : [];
     } catch (e) {
