@@ -88,6 +88,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderRoulettePreview([]);
   }
 
+  // ➕/➖ Stepper 수량 증감 버튼 이벤트 (요구사항 1)
+  const btnWinnerMinus = document.getElementById('btn-winner-minus');
+  const btnWinnerPlus = document.getElementById('btn-winner-plus');
+  const btnTeamMinus = document.getElementById('btn-team-minus');
+  const btnTeamPlus = document.getElementById('btn-team-plus');
+
+  if (btnWinnerMinus && btnWinnerPlus) {
+    btnWinnerMinus.addEventListener('click', () => {
+      const val = Math.max(1, (parseInt(winnerCountInput.value) || 1) - 1);
+      winnerCountInput.value = val;
+    });
+    btnWinnerPlus.addEventListener('click', () => {
+      const val = Math.min(50, (parseInt(winnerCountInput.value) || 1) + 1);
+      winnerCountInput.value = val;
+    });
+  }
+
+  if (btnTeamMinus && btnTeamPlus) {
+    btnTeamMinus.addEventListener('click', () => {
+      const val = Math.max(2, (parseInt(teamCountInput.value) || 2) - 1);
+      teamCountInput.value = val;
+    });
+    btnTeamPlus.addEventListener('click', () => {
+      const val = Math.min(10, (parseInt(teamCountInput.value) || 2) + 1);
+      teamCountInput.value = val;
+    });
+  }
+
   // 🎛️ 바텀시트 접기/펼치기 핸들 클릭
   bottomSheetHandle.addEventListener('click', () => {
     bottomSheet.classList.toggle('collapsed');

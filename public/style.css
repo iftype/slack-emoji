@@ -496,26 +496,83 @@ body {
   cursor: pointer;
 }
 
-/* 🎛️ 하단 슬라이딩 바텀 시트 (Apple iOS Style Light Sheet) */
+/* 🎛️ 하단 슬라이딩 바텀 시트 (Apple/Inflearn Light Sheet) */
 .bottom-sheet {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 62vh;
-  max-height: 540px;
-  min-height: 360px;
+  height: 500px;
+  max-height: 64vh;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top-left-radius: 28px;
-  border-top-right-radius: 28px;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
   border-top: 1px solid var(--glass-border);
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.08);
   transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
   z-index: 100;
   display: flex;
   flex-direction: column;
+}
+
+/* 🚨 접혔을 때: 바텀시트가 아래로 쏙 내려가서 손잡이 핸들바(32px)만 솟아있도록 정확히 튜닝! */
+.bottom-sheet.collapsed {
+  transform: translateY(calc(100% - 32px)) !important;
+}
+
+/* 모바일 포커스 시 화면 자동 확대(Zoom) 방지 16px 폰트 */
+input[type="text"],
+input[type="url"],
+input[type="number"],
+select {
+  font-size: 16px !important;
+}
+
+/* ➕/➖ Stepper 수량 증감 버튼 디자인 */
+.stepper-control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #f8f9fa;
+  border: 1px solid #e4e5e7;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.btn-stepper {
+  width: 28px;
+  height: 28px;
+  background: #ffffff;
+  border: 1px solid #e4e5e7;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.btn-stepper:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.stepper-control input {
+  width: 38px;
+  text-align: center;
+  border: none !important;
+  background: transparent !important;
+  font-size: 16px !important;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 0 !important;
 }
 
 .bottom-sheet-handle {

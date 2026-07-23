@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=5.0.0">
+  <link rel="stylesheet" href="style.css?v=5.1.0">
 </head>
 <body>
   <!-- 📱 데스크탑 중앙 정렬 모바일 목업 컨테이너 (Max Width 430px) -->
@@ -215,11 +215,19 @@
                   <div class="mode-config-row">
                     <div class="config-item" id="config-podium">
                       <span class="config-label">당첨 인원 수</span>
-                      <input type="number" id="winner-count-input" min="1" max="20" value="1">
+                      <div class="stepper-control">
+                        <button type="button" id="btn-winner-minus" class="btn-stepper">-</button>
+                        <input type="number" id="winner-count-input" min="1" max="50" value="1" readonly>
+                        <button type="button" id="btn-winner-plus" class="btn-stepper">+</button>
+                      </div>
                     </div>
                     <div class="config-item hidden" id="config-group">
                       <span class="config-label">나눌 조 개수</span>
-                      <input type="number" id="team-count-input" min="2" max="6" value="2">
+                      <div class="stepper-control">
+                        <button type="button" id="btn-team-minus" class="btn-stepper">-</button>
+                        <input type="number" id="team-count-input" min="2" max="10" value="2" readonly>
+                        <button type="button" id="btn-team-plus" class="btn-stepper">+</button>
+                      </div>
                     </div>
                   </div>
                 </div>
