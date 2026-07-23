@@ -4,8 +4,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // DOM Elements
   const loginScreen = document.getElementById('login-screen');
   const loginForm = document.getElementById('login-form');
-  const loginTokenInput = document.getElementById('login-token');
-  const loginCookieInput = document.getElementById('login-cookie');
 
   const mainScreen = document.getElementById('main-screen');
   const analyzerForm = document.getElementById('analyzer-form');
@@ -44,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const analysisUserList = document.getElementById('analysis-user-list');
 
   const bottomSheet = document.getElementById('bottom-sheet');
+  const bottomSheetHandle = document.getElementById('bottom-sheet-handle');
   const rouletteStage = document.getElementById('roulette-stage');
   const rouletteReelContainer = document.getElementById('roulette-reel-container');
   const groupDealerStage = document.getElementById('group-dealer-stage');
@@ -67,6 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const configGroup = document.getElementById('config-group');
   const winnerCountInput = document.getElementById('winner-count-input');
   const teamCountInput = document.getElementById('team-count-input');
+  const btnSummonChannelAll = document.getElementById('btn-summon-channel-all');
 
   const sliderWrapper = document.getElementById('slider-wrapper');
   const btnPrevSlide = document.getElementById('btn-prev-slide');
@@ -77,14 +77,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentFeedbacksData = [];
   let customEmojiCache = {};
   let currentUnreactedUsers = [];
+  let pickedWinners = [];
 
   // Init Main Screen
   loadMainMeadow();
-
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    loadMainMeadow();
-  });
 
   async function loadMainMeadow() {
     mainScreen.classList.remove('hidden');
@@ -92,9 +88,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     customEmojiCache = await SlackApi.fetchCustomEmojis();
     await refreshFeedbacks();
-    bottomSheet.classList.add('expanded');
     checkClipboardAndAutoPaste();
   }
+
+  // 🎛️ 바텀시트 접기/펼치기 핸들 클릭 이벤트 (요구사항 6)
+  bottomSheetHandle.addEventListener('click', () => {
+    bottomSheet.classList.toggle('collapsed');
+  });
 
   // 📋 Clipboard Auto Paste
   async function checkClipboardAndAutoPaste() {
@@ -111,6 +111,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {}
   }
   window.addEventListener('focus', checkClipboardAndAutoPaste);
+
+  // 🌐 요구사항 4: 채널 인원 전체 소환 버튼 (무작위 추첨 오른쪽 위)
+  btnSummonChannelAll.addEventListener('click', async () => {
+    if (!currentAnalyzedMessage || !currentAnalyzedMessage.channel) {
+      alert('슬랙 링크를 먼저 분석해주시거나 채널 정보가 필요합니다!');
+      return;
+    }
+    // 미반응자 + 반응자 전체 병합 소환
+    const allChannelUsers = [
+      ...currentUnreactedUsers,
+      ...(activeEmojiGroup ? activeEmojiGroup.users : [])
+    ];
+    if (allChannelUsers.length === 0) {
+      alert('채널 인원을 불러올 수 없습니다.');
+      return;
+    }
+
+    const updated = await SlackApi.saveFeedbackGroup(slackUrlInput.value.trim(), '', '🌐 채널 전체 인원', allChannelUsers);
+    renderFeedbackList(updated);
+    sliderWrapper.style.transform = 'translateX(-33.333%)';
+    bottomSheet.classList.remove('collapsed');
+  });
 
   // 🔍 Analyze Slack URL
   analyzerForm.addEventListener('submit', async (e) => {
@@ -281,6 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return Array.from(runnerMap.values());
   }
 
+  // 요구사항 5: 룰렛 명단 렌더링 시 :two: 대신 2️⃣ 유니코드 이모지 아이콘 사용
   function renderFeedbackList(feedbacks) {
     currentFeedbacksData = feedbacks || [];
     if (currentFeedbacksData.length === 0) {
@@ -296,10 +319,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = '';
     currentFeedbacksData.forEach(f => {
+      const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
       html += `
         <div class="feedback-group-item" style="background:#f5f5f7;border:1px solid rgba(0,0,0,0.06);border-radius:12px;padding:10px;margin-bottom:8px;">
           <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
-            <span>:${f.emoji}: (${f.users.length}명)</span>
+            <span>${emojiBadge} (${f.users.length}명)</span>
             <button class="btn-danger-xs" data-link="${f.messageLink}" data-emoji="${f.emoji}">삭제</button>
           </div>
           <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
@@ -346,7 +370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 🔀 Game Mode Switch Event (NO auto lottery trigger!)
+  // 🔀 Game Mode Switch Event
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
   gameModeRadios.forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -367,9 +391,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // 🎰 연속 룰렛 당첨자 관리 배열
-  let pickedWinners = [];
-
   // 🎰 Start Lottery ONLY on explicit Button Click
   startRaceBtn.addEventListener('click', () => {
     runSingleLotterySpin();
@@ -382,6 +403,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // 추첨 시작 시 바텀시트를 자동으로 슬림하게 접어 룰렛을 잘 보이게 처리 (요구사항 6)
+    bottomSheet.classList.add('collapsed');
+
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     const elements = {
       rouletteReelContainer,
@@ -392,10 +416,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (mode === 'podium') {
       LotteryEngine.pickSingleWinner(runners, elements, (winner) => {
-        // 당첨자를 당첨 목록에 추가하고 다음 대상에서 제외
         if (winner) {
           pickedWinners.push(winner);
-          // 해당 유저를 done 상태로 설정하여 다음 추첨에서 제외
           currentFeedbacksData.forEach(f => {
             f.users.forEach(u => {
               if (u.id === winner.id) u.done = true;
@@ -434,6 +456,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function showFinalResultView(mode, resultData) {
     raceCommentary.classList.add('hidden');
+    bottomSheet.classList.remove('collapsed'); // 바텀시트 다시 펴짐
     sliderWrapper.style.transform = 'translateX(-66.666%)';
 
     if (mode === 'podium') {
@@ -445,11 +468,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? `🎰 다음 당첨자 뽑기 (남은 ${remainingCount}명)` 
         : '🎉 추첨 완료';
 
-      if (remainingCount === 0) {
-        rankingRetryBtn.disabled = true;
-      } else {
-        rankingRetryBtn.disabled = false;
-      }
+      rankingRetryBtn.disabled = (remainingCount === 0);
 
       rankingListView.innerHTML = resultData.map((w, idx) => `
         <div class="winner-result-card">
@@ -478,22 +497,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // 요구사항 6: 결과 볼 때 확인 버튼 누르면 바텀시트 접힘
   rankingConfirmBtn.addEventListener('click', () => {
     sliderWrapper.style.transform = 'translateX(0%)';
+    bottomSheet.classList.add('collapsed');
   });
 
+  // 요구사항 2: 룰렛 다시돌릴 때 뒤로갔다 앞으로갔다 하지않고 즉시 회전!
   rankingRetryBtn.addEventListener('click', () => {
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     if (mode === 'podium') {
       const remainingRunners = getUniqueActiveRunners();
       if (remainingRunners.length > 0) {
-        sliderWrapper.style.transform = 'translateX(0%)';
-        setTimeout(() => {
-          runSingleLotterySpin();
-        }, 300);
+        runSingleLotterySpin();
       }
     } else {
-      sliderWrapper.style.transform = 'translateX(-33.333%)';
       const runners = getUniqueActiveRunners();
       const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
       const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
@@ -507,12 +525,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     sliderWrapper.style.transform = 'translateX(0%)';
   });
 
-  selectAllRunnersBtn.addEventListener('click', () => {
-    // Select all action if needed
-  });
-
   deleteAllRunnersBtn.addEventListener('click', async () => {
     if (confirm('소환된 명단을 모두 삭제하시겠습니까?')) {
+      pickedWinners = [];
       for (const f of currentFeedbacksData) {
         await SlackApi.deleteFeedbackGroup(f.messageLink, f.emoji);
       }

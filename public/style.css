@@ -637,8 +637,45 @@ body {
   transition: background 0.2s;
 }
 
-.btn-success-sm:hover {
-  background: #059669;
+.mode-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.mode-title-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.btn-channel-all {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
+  transition: all 0.2s;
+}
+
+.btn-channel-all:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+}
+
+/* 바텀시트 접힘 상태 */
+.bottom-sheet {
+  transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), height 0.35s ease-in-out !important;
+}
+
+.bottom-sheet.collapsed {
+  height: 54px !important;
+  overflow: hidden;
 }
 
 /* 미반응자 탭 */
