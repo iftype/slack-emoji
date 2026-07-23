@@ -310,6 +310,26 @@ function App() {
     }
   };
 
+  // 📋 팀 구성 명단 복사 (사용자 지정 포맷: • 1팀: 찰리, 클라우디...)
+  const handleCopyGroupResults = () => {
+    if (!groupTeams || groupTeams.length === 0) return;
+    const lines = groupTeams.map((team, idx) => {
+      const names = team.map(m => m.real_name || m.name).join(', ');
+      return `• ${idx + 1}팀: ${names}`;
+    });
+    const copyText = lines.join('\n');
+    navigator.clipboard.writeText(copyText);
+    alert('팀 구성 명단이 클립보드에 복사되었습니다!');
+  };
+
+  // 📋 1인/다인 당첨자 명단 복사 헬퍼
+  const handleCopyWinners = () => {
+    if (pickedWinners.length === 0) return;
+    const names = pickedWinners.map((w, idx) => `${idx + 1}등: ${w.real_name || w.name}`).join('\n');
+    navigator.clipboard.writeText(names);
+    alert('당첨자 명단이 클립보드에 복사되었습니다!');
+  };
+
   const activeRunners = getUniqueActiveRunners();
 
   return (
@@ -582,7 +602,22 @@ function App() {
             {/* Slide 2: Final Result View */}
             <div className="slide-panel">
               <section className="panel-card result-card">
-                <h3>🎉 추첨 결과</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ margin: 0 }}>🎉 추첨 결과</h3>
+                  {gameMode === 'group' ? (
+                    groupTeams && (
+                      <button type="button" className="btn-success-sm" onClick={handleCopyGroupResults}>
+                        📋 팀 구성 명단 복사
+                      </button>
+                    )
+                  ) : (
+                    pickedWinners.length > 0 && (
+                      <button type="button" className="btn-success-sm" onClick={handleCopyWinners}>
+                        📋 당첨자 복사
+                      </button>
+                    )
+                  )}
+                </div>
 
                 {gameMode === 'podium' ? (
                   <div className="ranking-list-view">
