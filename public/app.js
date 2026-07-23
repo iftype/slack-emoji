@@ -87,7 +87,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     loginScreen.classList.add('hidden');
 
     customEmojiCache = await SlackApi.fetchCustomEmojis();
-    await refreshFeedbacks();
+    // 접속 시 이전 남아있던 명단을 자동 로드하지 않고 100% 클린 빈 룰렛 상태로 시작
+    renderFeedbackList([]);
+    renderRoulettePreview([]);
   }
 
   // 🎛️ 바텀시트 접기/펼치기 핸들 클릭 이벤트 (요구사항 6)
