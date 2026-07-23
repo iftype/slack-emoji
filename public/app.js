@@ -88,7 +88,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     customEmojiCache = await SlackApi.fetchCustomEmojis();
     await refreshFeedbacks();
-    checkClipboardAndAutoPaste();
   }
 
   // 🎛️ 바텀시트 접기/펼치기 핸들 클릭 이벤트 (요구사항 6)
@@ -96,21 +95,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     bottomSheet.classList.toggle('collapsed');
   });
 
-  // 📋 Clipboard Auto Paste
+  // 📋 클립보드 붙여넣기 헬퍼 (버튼 클릭 시만 수동 동작)
+  const btnPasteClip = document.getElementById('btn-paste-clip');
+  if (btnPasteClip) {
+    btnPasteClip.addEventListener('click', checkClipboardAndAutoPaste);
+  }
+
   async function checkClipboardAndAutoPaste() {
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
         const text = await navigator.clipboard.readText();
         if (text && text.includes('slack.com/archives/')) {
           const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
-          if (match && slackUrlInput.value !== match[0]) {
+          if (match) {
             slackUrlInput.value = match[0];
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      alert('클립보드 접근 권한이 없거나 지원되지 않습니다. 직접 붙여넣기를 이용해주세요.');
+    }
   }
-  window.addEventListener('focus', checkClipboardAndAutoPaste);
 
   // 🌐 요구사항 4: 채널 인원 전체 소환 버튼 (무작위 추첨 오른쪽 위)
   btnSummonChannelAll.addEventListener('click', async () => {

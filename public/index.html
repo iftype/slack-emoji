@@ -134,13 +134,16 @@
                   <section class="panel-card input-card">
                     <h3>슬랙 링크 분석</h3>
                     <form id="analyzer-form">
-                      <div class="form-group">
+                      <div class="form-group input-with-btn">
                         <input 
                           type="url" 
                           id="slack-url" 
                           placeholder="슬랙 메시지 링크 입력..." 
                           required
                         >
+                        <button type="button" id="btn-paste-clip" class="btn-paste-clip" title="클립보드 링크 붙여넣기">
+                          📋 붙여넣기
+                        </button>
                       </div>
                       <button type="submit" id="submit-btn" class="btn-primary">
                         <span class="btn-text">이모지 가져오기</span>
