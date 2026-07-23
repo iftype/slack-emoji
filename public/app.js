@@ -140,7 +140,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 🌐 채널 인원 전체 소환 버튼 (유저 ID 기준 중복 100% 완전 제거!)
+  // 🎲 100% 무작위 셔플 헬퍼 (슬랙 반응자 정렬 순서로 인한 고정 노출 원천 차단)
+  function shuffleArray(arr) {
+    if (!arr || !Array.isArray(arr)) return [];
+    const shuffled = [...arr];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  // 🌐 채널 인원 전체 소환 버튼 (유저 ID 기준 중복 100% 완전 제거 & 무작위 셔플!)
   btnSummonChannelAll.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !currentAnalyzedMessage.channel) {
       alert('슬랙 링크를 먼저 분석해주시거나 채널 정보가 필요합니다!');
@@ -158,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    const uniqueChannelUsers = Array.from(uniqueUserMap.values());
+    const uniqueChannelUsers = shuffleArray(Array.from(uniqueUserMap.values()));
     if (uniqueChannelUsers.length === 0) {
       alert('채널 인원을 불러올 수 없습니다.');
       return;
@@ -276,7 +287,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnSummonUnreacted.addEventListener('click', async () => {
     if (currentUnreactedUsers.length === 0) return;
-    const updated = await SlackApi.saveFeedbackGroup(slackUrlInput.value.trim(), '', '🚨 이모지 미반응자', currentUnreactedUsers);
+    const shuffled = shuffleArray(currentUnreactedUsers);
+    const updated = await SlackApi.saveFeedbackGroup(slackUrlInput.value.trim(), '', '🚨 이모지 미반응자', shuffled);
     renderFeedbackList(updated);
     sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
@@ -287,7 +299,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     detailEmojiBadge.innerHTML = renderEmojiIcon(reactionData.name, customEmojiCache);
     detailEmojiCount.textContent = `${reactionData.users.length}명`;
 
-    detailUserList.innerHTML = reactionData.users.map(u => `
+    detailUserList.innerHTML = shuffleArray(reactionData.users).map(u => `
       <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f7;padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
         <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
         <span>${u.real_name || u.name}</span>
@@ -297,11 +309,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   addToFeedbackBtn.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !activeEmojiGroup) return;
+    const shuffledUsers = shuffleArray(activeEmojiGroup.users);
     const updated = await SlackApi.saveFeedbackGroup(
       slackUrlInput.value.trim(),
       currentAnalyzedMessage.text,
       activeEmojiGroup.name,
-      activeEmojiGroup.users
+      shuffledUsers
     );
     renderFeedbackList(updated);
     sliderWrapper.style.transform = 'translateX(-33.333%)';
