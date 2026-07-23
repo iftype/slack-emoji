@@ -1619,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let idx = 0;
     spawnedCharacters.forEach((state, uid) => {
-      state.element.classList.remove('racing', 'focused', 'dead');
+      state.element.classList.remove('racing', 'focused', 'dead', 'race-leader');
       state.bodyElement.style.transform = 'none';
       state.element.style.zIndex = '125';
       arrangeAtStartLine(uid, idx);
