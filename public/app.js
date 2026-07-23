@@ -449,6 +449,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  const rankingScrollContainer = document.getElementById('ranking-scroll-container');
+
   function showFinalResultView(mode, resultData) {
     raceCommentary.classList.add('hidden');
     bottomSheet.classList.remove('collapsed');
@@ -465,7 +467,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       rankingRetryBtn.disabled = (remainingCount === 0);
 
       rankingListView.innerHTML = resultData.map((w, idx) => `
-        <div class="winner-result-card">
+        <div class="winner-result-card" id="winner-card-${idx}">
           <span class="winner-rank-badge">${idx + 1}등</span>
           <img src="${w.avatar || 'https://via.placeholder.com/44'}" class="winner-avatar">
           <div class="winner-info">
@@ -474,6 +476,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>
       `).join('');
+
+      // 🚨 새로 생기는 당첨자 카드로 자동 스크롤 다운!
+      setTimeout(() => {
+        if (rankingScrollContainer) {
+          rankingScrollContainer.scrollTop = rankingScrollContainer.scrollHeight;
+        }
+      }, 50);
     } else {
       groupRankingView.classList.remove('hidden');
       rankingListView.classList.add('hidden');
