@@ -165,7 +165,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     loadFeedbacks(true);
     bottomSheet.classList.add('expanded');
+    checkClipboardAndAutoPaste();
   }
+
+  // 📋 클립보드에 슬랙 메시지 URL이 있으면 자동 감지 및 입력창 붙여넣기 (PC & 모바일)
+  async function checkClipboardAndAutoPaste() {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && text.includes('slack.com/archives/')) {
+          const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
+          if (match && slackUrlInput.value !== match[0]) {
+            slackUrlInput.value = match[0];
+          }
+        }
+      }
+    } catch (e) {
+      // 클립보드 접근 권한 거부 시 안전하게 스킵
+    }
+  }
+
+  window.addEventListener('focus', checkClipboardAndAutoPaste);
 
   /* ====================================================
      2. 슬랙 메시지 분석 및 결과 처리
