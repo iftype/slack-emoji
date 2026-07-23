@@ -1047,20 +1047,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const state = spawnedCharacters.get(userId);
     if (!state) return;
 
-    // 🏃 경기장(280px 높이) 레인 안에 옹기종기 밀집 출발
+    // 🏃 경기장 레인 안에 밀집 출발 (세로 이탈 방지용 타이트 범위)
     const cols = 5; 
     const xCol = idx % cols;
     const yRow = Math.floor(idx / cols);
 
     state.x = 40 + xCol * 14 + Math.random() * 6;
-    // 트랙 바닥(bottom) 기준 18~170px — 캐릭터 키가 레인 안에 들어오도록
-    state.y = 18 + (yRow * 26) % 152; 
+    state.y = 12 + (yRow * 22) % 120; 
 
     state.element.style.transition = 'left 0.8s cubic-bezier(0.25, 1, 0.5, 1), bottom 0.8s cubic-bezier(0.25, 1, 0.5, 1)';
     state.element.style.left = `${state.x}px`;
     state.element.style.bottom = `${state.y}px`;
     
-    state.bodyElement.style.transform = 'scale(0.85)';
+    state.bodyElement.style.transform = 'scale(0.78)';
     state.element.style.zIndex = String(20 + Math.round(state.y));
     
     state.element.classList.remove('waddling-walk');
@@ -1278,22 +1277,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const FINISH_X = 2500;
     const RACE_LIMIT_MS = 15000;
-    // 거리 ~2450px → 초당 200~260px면 약 9.5~12.5초에 선두 골인, 15초 하드캡
+    // 거리 ~2450px → 초당 360~520px면 약 5~7초에 선두 골인
     const raceStartTime = performance.now();
     let lastFrameTime = raceStartTime;
 
-    spawnedCharacters.forEach((state, uid) => {
-      const isWinner = selectedGameMode === 'podium' && selectedWinnersList.includes(uid);
-      // px/sec — 1등 후보를 조금 더 빠르게
-      state.speed = isWinner
-        ? 230 + Math.random() * 40
-        : 195 + Math.random() * 45;
-      state.fallX = 400 + Math.random() * 1700;
+    // 사람마다 확연히 다른 고유 속도 (셔플 랭크)
+    const runners = Array.from(spawnedCharacters.keys());
+    const speedRanks = runners
+      .map((_, i) => i)
+      .sort(() => Math.random() - 0.5);
+
+    runners.forEach((uid, i) => {
+      const state = spawnedCharacters.get(uid);
+      const rank = speedRanks[i]; // 0 = 느림 … n-1 = 빠름
+      const t = runners.length <= 1 ? 1 : rank / (runners.length - 1);
+      // 기본 340~500 px/s + 개인 노이즈
+      let base = 340 + t * 160 + Math.random() * 35;
+
+      // 선착순 당첨 후보에게 소폭 가속 (그래도 순위 경쟁은 유지)
+      if (selectedGameMode === 'podium' && selectedWinnersList.includes(uid)) {
+        base += 40 + Math.random() * 30;
+      }
+
+      state.speed = base;
+      state.speedJitter = 0.55 + Math.random() * 0.9; // 개인별 출렁임 주기/폭
+      state.fallX = 500 + Math.random() * 1600;
+      // Y 재클램프 — 목업 밖으로 안 나가게
+      state.y = Math.max(8, Math.min(125, state.y));
     });
 
     camX = 0;
     camY = 0;
-    currentZoom = 1.15;
+    currentZoom = 1.0;
 
     let frameIndex = 0;
     let lastCommentTime = 0;
@@ -1307,7 +1322,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       lastFrameTime = now;
       const elapsed = now - raceStartTime;
 
-      // ⏱ 15초 하드캡
       if (elapsed >= RACE_LIMIT_MS) {
         isRacing = false;
         cancelAnimationFrame(raceAnimationFrameId);
@@ -1317,9 +1331,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       let activeRunnersCount = 0;
       spawnedCharacters.forEach((st) => {
-        if (!st.isDead && !st.isFinished) {
-          activeRunnersCount++;
-        }
+        if (!st.isDead && !st.isFinished) activeRunnersCount++;
       });
 
       if (activeRunnersCount === 0) {
@@ -1334,51 +1346,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!st.isDead) aliveRunners.push({ id: uid, state: st });
       });
 
-      if (frameIndex - lastCommentTime >= 55) {
+      // 현재 1등
+      let leader = aliveRunners[0];
+      aliveRunners.forEach(r => {
+        if (r.state.x > leader.state.x) leader = r;
+      });
+      leaderUid = leader.id;
+      const leadX = leader.state.x;
+
+      if (frameIndex - lastCommentTime >= 50) {
         lastCommentTime = frameIndex;
         if (aliveRunners.length > 1) {
-          let commentaryOptions = [];
-          if (selectedGameMode === 'podium') {
-            commentaryOptions = [
-              `[중계] 🏆 긴급 질주! 남은 생존 주자는 ${aliveRunners.length}명입니다.`,
-              `[중계] 1등 주자를 카메라가 바짝 쫓습니다!`,
-              `[중계] 피니시 아치를 향해 치닫습니다!`
-            ];
-          } else {
-            commentaryOptions = [
-              `[중계] 👥 조 짜기 모드! 선두 그룹을 카메라가 추적 중!`,
-              `[중계] 긴 트랙을 채우는 아름다운 네온 대형!`,
-              `[중계] 단체 골인을 향한 힘찬 전진!`
-            ];
-          }
-          commentaryText.textContent = commentaryOptions[Math.floor(Math.random() * commentaryOptions.length)];
+          const opts = selectedGameMode === 'podium'
+            ? [
+                `[중계] 🏆 남은 생존 주자 ${aliveRunners.length}명!`,
+                `[중계] 카메라가 1등을 바짝 추적합니다!`,
+                `[중계] 피니시 아치를 향해 전력 질주!`
+              ]
+            : [
+                `[중계] 👥 선두를 카메라가 따라갑니다!`,
+                `[중계] 조별 대형으로 질주 중!`,
+                `[중계] 단체 골인을 향한 힘찬 전진!`
+              ];
+          commentaryText.textContent = opts[Math.floor(Math.random() * opts.length)];
         }
       }
 
-      // 💥 달리다가 툭 넘어지며 낙오되는 돌발 탈락 기믹
+      // 💥 낙오
       spawnedCharacters.forEach((state, uid) => {
         if (state.isDead || state.isFinished) return;
+        if (selectedGameMode !== 'podium') return;
+        if (selectedWinnersList.includes(uid)) return;
+        if (state.x < state.fallX) return;
 
-        if (selectedGameMode === 'podium') {
-          const isWinner = selectedWinnersList.includes(uid);
-          
-          if (!isWinner && state.x >= state.fallX) {
-            state.isDead = true;
-            state.element.classList.remove('racing', 'race-leader');
-            state.element.classList.add('dead');
-            
-            eliminatedQueue.push(uid);
-
-            const charName = state.element.querySelector('.char-name-bubble').textContent;
-            commentaryText.textContent = `[중계] 💥 앗! ${charName} 선수, 돌부리에 발이 걸려 넘어졌습니다!`;
-            
-            sfx.playSplat();
-          }
-        }
+        state.isDead = true;
+        state.element.classList.remove('racing', 'race-leader');
+        state.element.classList.add('dead');
+        eliminatedQueue.push(uid);
+        const charName = state.element.querySelector('.char-name-bubble').textContent;
+        commentaryText.textContent = `[중계] 💥 앗! ${charName} 선수, 돌부리에 발이 걸려 넘어졌습니다!`;
+        sfx.playSplat();
       });
 
-      // 가로 좌표 업데이트 (delta-time 기반)
-      spawnedCharacters.forEach((state) => {
+      // 이동 + 화면 이탈 방지(1등 대비 과도한 뒤처짐 러버밴드)
+      const MAX_LAG = 220; // 1등보다 이만큼 이상 뒤처지면 살짝 끌어줌 → 목업 안 유지
+      spawnedCharacters.forEach((state, uid) => {
         if (state.isDead) return;
 
         if (state.x >= FINISH_X) {
@@ -1396,69 +1408,54 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
 
-        const wobble = Math.sin(frameIndex * 0.08 + state.randomSeed) * 8;
-        state.x += (state.speed + wobble) * dt;
+        const jitter = Math.sin(frameIndex * 0.11 * state.speedJitter + state.randomSeed) * (18 + state.speedJitter * 22);
+        state.x += (state.speed + jitter) * dt;
 
+        // 1등 카메라 프레임 안에 무리 유지
+        if (uid !== leaderUid && state.x < leadX - MAX_LAG) {
+          state.x += (leadX - MAX_LAG - state.x) * 0.12;
+        }
+
+        state.y = Math.max(8, Math.min(125, state.y));
         state.bodyElement.classList.remove('facing-left');
 
-        const scale = 0.82 + (state.y / 280) * 0.18;
-
-        state.element.style.left = `${state.x - 30}px`; 
-        state.element.style.bottom = `${state.y}px`; 
+        const scale = 0.72 + (state.y / 260) * 0.14;
+        state.element.style.left = `${state.x - 30}px`;
+        state.element.style.bottom = `${state.y}px`;
         state.bodyElement.style.transform = `scale(${scale})`;
-        state.element.style.zIndex = String(20 + Math.round(state.y)); 
+        state.element.style.zIndex = String(20 + Math.round(state.y));
       });
 
-      // 🎥 1등(선두) 카메라 워킹 — 가장 앞선 주자를 화면 중앙에 고정
-      if (aliveRunners.length > 0) {
-        let leader = aliveRunners[0];
-        aliveRunners.forEach(r => {
-          if (r.state.x > leader.state.x) leader = r;
-        });
-        leaderUid = leader.id;
-        const leadX = leader.state.x;
+      // 🎥 1등 전용 카메라 워킹 — 화면 중앙에 하드 락
+      spawnedCharacters.forEach((st, uid) => {
+        st.element.classList.toggle('race-leader', uid === leaderUid && !st.isDead);
+      });
 
-        spawnedCharacters.forEach((st, uid) => {
-          st.element.classList.toggle('race-leader', uid === leaderUid && !st.isDead);
-        });
+      const viewFocus = 195; // 목업 가로 중앙
+      const targetCamX = viewFocus - leadX;
+      // 거의 즉시 따라감 (시네마틱 락온)
+      camX += (targetCamX - camX) * 0.45;
 
-        // 폰 화면(~390px) 중앙 부근에 1등 유지
-        const viewFocus = 175;
-        const targetCamX = viewFocus - leadX;
-        camX += (targetCamX - camX) * 0.28;
+      const progress = Math.min(1, leadX / FINISH_X);
+      // 줌은 약하게 — 목업 밖 이탈 방지
+      const targetZoom = 1.0 + progress * 0.08;
+      currentZoom += (targetZoom - currentZoom) * 0.1;
 
-        let currentAliveCount = 0;
-        spawnedCharacters.forEach((st) => {
-          if (!st.isDead) currentAliveCount++;
-        });
+      cameraStage.style.transform = `translate(${camX}px, 0px) scale(${currentZoom})`;
 
-        // 인원 줄수록 살짝 줌인, 후반부에도 1등이 잘 보이게
-        const progress = Math.min(1, leadX / FINISH_X);
-        const baseZoom = 1.05;
-        const targetZoom = baseZoom + progress * 0.2 + ((totalRunnersCount - currentAliveCount) / Math.max(1, totalRunnersCount)) * 0.15;
-        currentZoom += (targetZoom - currentZoom) * 0.08;
+      parallaxTrees.forEach((tree, tIdx) => {
+        tree.style.transform = `translateX(${tIdx * 105 + camX * 0.35}px)`;
+      });
 
-        cameraStage.style.transform = `translate(${camX}px, 0px) scale(${currentZoom})`;
-
-        parallaxTrees.forEach((tree, tIdx) => {
-          const initialOffset = tIdx * 105; 
-          const parallaxX = initialOffset + camX * 0.4; 
-          tree.style.transform = `translateX(${parallaxX}px)`;
-        });
-      }
-
+      // 목업 밖(좌측)으로 완전히 나간 낙오자만 제거
       const mockupEl = document.querySelector('.mobile-mockup');
       const mockupRect = mockupEl.getBoundingClientRect();
-
       spawnedCharacters.forEach((state, uid) => {
-        if (state.isDead) {
-          const charRect = state.element.getBoundingClientRect();
-          const isOffScreenLeft = charRect.right < mockupRect.left;
-
-          if (isOffScreenLeft) {
-            state.element.remove();
-            spawnedCharacters.delete(uid);
-          }
+        if (!state.isDead) return;
+        const charRect = state.element.getBoundingClientRect();
+        if (charRect.right < mockupRect.left - 20) {
+          state.element.remove();
+          spawnedCharacters.delete(uid);
         }
       });
 
