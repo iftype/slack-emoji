@@ -11,7 +11,7 @@ const EMOJI_MAP = {
   'clinking_glasses': '🥂', 'beer': '🍺', 'pizza': '🍕', 'coffee': '☕',
   'star': '⭐', 'star2': '🌟', 'sparkler': '🎇', 'balloon': '🎈',
   'gift': '🎁', 'trophy': '🏆', 'first_place_medal': '🥇',
-  'x': '❌', 'heavy_check_mark': 'Heavy Check Mark', 'heavy_plus_sign': '➕',
+  'x': '❌', 'heavy_check_mark': '✔️', 'heavy_plus_sign': '➕',
   'wave': '👋', 'ok_hand': '👌', 'v': '✌️', 'muscle': '💪', 'brain': '🧠',
   'zero': '0️⃣', 'one': '1️⃣', 'two': '2️⃣', 'three': '3️⃣', 'four': '4️⃣',
   'five': '5️⃣', 'six': '6️⃣', 'seven': '7️⃣', 'eight': '8️⃣', 'nine': '9️⃣',
