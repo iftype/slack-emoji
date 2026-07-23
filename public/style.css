@@ -622,6 +622,49 @@ body {
   color: var(--text-primary);
 }
 
+/* 슬랙 메시지 본문 가독성 인프런 카드 스타일 */
+.message-info {
+  background: #f8f9fa;
+  border: 1px solid #e4e5e7;
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.user-profile .avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.user-profile .username {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.user-profile .timestamp {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.message-content {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #2b2d30;
+  word-break: break-word;
+  margin: 0;
+}
+
 /* 탭 메뉴 */
 .tab-menu-row {
   display: flex;

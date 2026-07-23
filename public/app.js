@@ -379,7 +379,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    bottomSheet.classList.add('collapsed');
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
 

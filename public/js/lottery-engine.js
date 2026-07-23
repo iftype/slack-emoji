@@ -48,31 +48,43 @@ const LotteryEngine = {
         rouletteReelContainer.style.transform = `translateY(${self.reelY}px)`;
         self.rollAnimTimer = requestAnimationFrame(rollLoop);
       } else {
-        self.finishSingleWinner(winner, elements, onComplete);
+        self.finishSingleWinner(winner, runners, elements, onComplete);
       }
     }
     rollLoop();
   },
 
-  finishSingleWinner(winner, elements, onComplete) {
+  finishSingleWinner(winner, runners, elements, onComplete) {
     this.isRolling = false;
     if (this.rollAnimTimer) cancelAnimationFrame(this.rollAnimTimer);
     
     const { rouletteReelContainer, commentaryText } = elements;
     commentaryText.textContent = `🎉 [${winner.real_name || winner.name}] 님 당첨!`;
 
-    // 🎯 중앙 하이라이트 카드로 고정
+    // 🎯 요구사항 2: 당첨되어도 위아래 룰렛 카드들이 사라지지 않고 은은히 유지되어 자연스러운 연출!
+    const otherRunners = runners.filter(u => u.id !== winner.id);
+    const prevRunner = otherRunners[0] || winner;
+    const nextRunner = otherRunners[1] || winner;
+
     rouletteReelContainer.innerHTML = `
-      <div class="picker-card-2d winner-highlight">
+      <div class="picker-card-2d" style="opacity:0.35;transform:scale(0.92);margin-bottom:2px;">
+        <img src="${prevRunner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
+        <span class="card-name">${prevRunner.real_name || prevRunner.name}</span>
+      </div>
+      <div class="picker-card-2d winner-highlight" style="transform:scale(1.04);z-index:10;box-shadow:0 4px 16px rgba(0,196,113,0.3);">
         <img src="${winner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
         <span class="card-name">🎉 ${winner.real_name || winner.name}</span>
+      </div>
+      <div class="picker-card-2d" style="opacity:0.35;transform:scale(0.92);margin-top:2px;">
+        <img src="${nextRunner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
+        <span class="card-name">${nextRunner.real_name || nextRunner.name}</span>
       </div>
     `;
     rouletteReelContainer.style.transform = 'translateY(0px)';
 
     setTimeout(() => {
       if (onComplete) onComplete(winner);
-    }, 800);
+    }, 700);
   },
 
   // 조 짜기 (팀 나누기) 쾌속 분배
