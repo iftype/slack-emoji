@@ -136,7 +136,8 @@ async function getUserInfo(userId, token, cookieD = '') {
         name: user.name,
         real_name: user.profile.real_name || user.real_name,
         display_name: user.profile.display_name || '',
-        avatar: user.profile.image_72 || user.profile.image_48 || ''
+        avatar: user.profile.image_72 || user.profile.image_48 || '',
+        is_bot: user.is_bot || user.is_app_user || false
       };
       userCache.set(cacheKey, userInfo);
       return userInfo;
@@ -297,6 +298,29 @@ app.post('/api/analyze', async (req, res) => {
       messageAuthor = await getUserInfo(messageData.user, token, cookie);
     }
 
+    // 🚨 슬랙 채널 내부 멤버 중 반응(이모지)을 안 누른 유저 탐지
+    let unreactedUsers = [];
+    try {
+      const membersRes = await axios.get('https://slack.com/api/conversations.members', {
+        headers,
+        params: { channel: channelId, limit: 1000 }
+      });
+      if (membersRes.data.ok && Array.isArray(membersRes.data.members)) {
+        const allChannelMembers = membersRes.data.members;
+        const unreactedMemberIds = allChannelMembers.filter(id => !userIds.has(id));
+        
+        // 상위 100명까지 병렬 정보 로드 및 봇 제외
+        const unreactedPromises = unreactedMemberIds.slice(0, 100).map(async (uid) => {
+          const info = await getUserInfo(uid, token, cookie);
+          return info.is_bot ? null : info;
+        });
+        const unreactedResults = await Promise.all(unreactedPromises);
+        unreactedUsers = unreactedResults.filter(Boolean);
+      }
+    } catch (mErr) {
+      console.warn('Channel members fetch skipped/failed:', mErr.message);
+    }
+
     return res.json({
       ok: true,
       message: {
@@ -304,6 +328,7 @@ app.post('/api/analyze', async (req, res) => {
         user: messageAuthor,
         ts: messageData.ts,
         reactions: analyzedReactions,
+        unreactedUsers: unreactedUsers,
         channel: channelId
       }
     });

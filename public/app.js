@@ -1,11 +1,3 @@
-// API 서버 기본 경로 (GitHub Pages에서 오라클 서버로 호출)
-function getApiBase() {
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    return '';  // 로컬 개발: 같은 서버
-  }
-  return 'https://iftype.store/slack';  // 프로덕션: 오라클 서버
-}
-
 // 슬랙 대표 이모지 숏코드 -> 유니코드 매핑 딕셔너리
 const EMOJI_MAP = {
   'thumbsup': '👍', '+1': '👍', 'thumbsdown': '👎', '-1': '👎',
@@ -16,224 +8,55 @@ const EMOJI_MAP = {
   'cry': '😢', 'joy': '😂', 'sweat_smile': '😅', 'rolling_on_the_floor_laughing': '🤣',
   'heart_eyes': '😍', 'scream': '😱', 'poop': '💩', 'warning': '⚠️',
   'lightbulb': '💡', '100': '💯',
-  'skateboard': '🛹', 'skate': '🛹'
+  'clinking_glasses': '🥂', 'beer': '🍺', 'pizza': '🍕', 'coffee': '☕',
+  'star': '⭐', 'star2': '🌟', 'sparkler': '🎇', 'balloon': '🎈',
+  'gift': '🎁', 'trophy': '🏆', 'first_place_medal': '🥇',
+  'x': '❌', 'heavy_check_mark': 'Heavy Check Mark', 'heavy_plus_sign': '➕',
+  'wave': '👋', 'ok_hand': '👌', 'v': '✌️', 'muscle': '💪', 'brain': '🧠'
 };
 
-// 슬랙 커스텀 이모지 캐시
-let customEmojiCache = {};
-
-// 이모지 렌더링 헬퍼
-function getEmojiDisplay(emojiName) {
-  if (customEmojiCache[emojiName]) {
-    return `<img class="custom-emoji-img" src="${customEmojiCache[emojiName]}" alt="${emojiName}">`;
+// API 서버 기본 경로 (GitHub Pages에서 오라클 서버로 호출)
+function getApiBase() {
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    return ''; // 로컬 개발: 같은 서버
   }
-  if (EMOJI_MAP[emojiName]) return EMOJI_MAP[emojiName];
-  if (emojiName.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]/)) return emojiName;
-  return `:${emojiName}:`;
+  return 'https://iftype.store/slack'; // 프로덕션: 오라클 서버
 }
 
-// 닉네임/실명 단독 대표값 반환 (괄호 병기 제거)
-function getUserDisplayName(u) {
-  return u.display_name || u.real_name || u.name || '알 수 없는 사용자';
-}
-
-// 💬 본문 원문 내 숏코드 이모지 치환기
-function parseTextEmojis(text) {
+// 숏코드 이모지 치환기
+function parseTextEmojis(text, customEmojiMap = {}) {
   if (!text) return '';
-  return text.replace(/:([a-zA-Z0-9_+-]+):/g, (match, emojiName) => {
-    return getEmojiDisplay(emojiName);
+  let cleanText = text.replace(/<(https?:\/\/[^>|]+)(\|[^>]+)?>/g, (match, url, label) => {
+    const textLabel = label ? label.slice(1) : url;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="message-link">${textLabel}</a>`;
+  });
+  cleanText = cleanText.replace(/<@([A-Z0-9]+)>/g, '<span class="user-mention">@$1</span>');
+  
+  return cleanText.replace(/:([a-zA-Z0-9_+\-]+):/g, (match, code) => {
+    if (EMOJI_MAP[code]) return EMOJI_MAP[code];
+    if (customEmojiMap && customEmojiMap[code]) {
+      const imgUrl = customEmojiMap[code];
+      if (imgUrl.startsWith('alias:')) return match;
+      return `<img src="${imgUrl}" alt=":${code}:" class="text-custom-emoji" title=":${code}:" />`;
+    }
+    return match;
   });
 }
-
-function formatTimestamp(ts) {
-  try {
-    const date = new Date(parseFloat(ts) * 1000);
-    return date.toLocaleString('ko-KR', {
-      month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
-  } catch (e) {
-    return ts;
-  }
-}
-
-// 🖼️ Canvas 누끼 따기
-function removeBackground(imgSrc) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imgData.data;
-      
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i+1];
-        const b = data[i+2];
-        
-        const isBlackLine = r < 95 && g < 95 && b < 95;
-        const isWhiteFill = r > 215 && g > 215 && b > 215;
-        
-        if (isBlackLine) {
-          data[i] = 0;
-          data[i+1] = 0;
-          data[i+2] = 0;
-          data[i+3] = 255; 
-        } else if (isWhiteFill) {
-          data[i] = 255;
-          data[i+1] = 255;
-          data[i+2] = 255;
-          data[i+3] = 255;
-        } else {
-          data[i+3] = 0; 
-        }
-      }
-      
-      ctx.putImageData(imgData, 0, 0);
-      resolve(canvas.toDataURL());
-    };
-    img.onerror = () => {
-      resolve(imgSrc);
-    };
-    img.src = imgSrc;
-  });
-}
-
-/* ====================================================
-   🔊 브라우저 내장 Web Audio API 효과음 엔진 (SFX)
-   ==================================================== */
-class SoundFXEngine {
-  constructor() {
-    this.ctx = null;
-  }
-
-  init() {
-    if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-  }
-
-  playBeep(freq = 600, duration = 0.12) {
-    this.init();
-    if (!this.ctx) return;
-    
-    const osc = this.ctx.createOscillator();
-    const gainNode = this.ctx.createGain();
-    
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-    
-    gainNode.gain.setValueAtTime(0.08, this.ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-    
-    osc.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
-    
-    osc.start();
-    osc.stop(this.ctx.currentTime + duration);
-  }
-
-  playShot() {
-    this.init();
-    if (!this.ctx) return;
-
-    const bufferSize = this.ctx.sampleRate * 0.4;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
-
-    const noiseNode = this.ctx.createBufferSource();
-    noiseNode.buffer = buffer;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 1000;
-
-    const gainNode = this.ctx.createGain();
-    gainNode.gain.setValueAtTime(0.35, this.ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
-
-    noiseNode.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
-
-    noiseNode.start();
-    noiseNode.stop(this.ctx.currentTime + 0.4);
-    
-    this.playBeep(85, 0.25);
-  }
-
-  playSplat() {
-    this.init();
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gainNode = this.ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(450, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.3);
-
-    gainNode.gain.setValueAtTime(0.12, this.ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
-
-    osc.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
-
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.3);
-  }
-
-  playWoohoo() {
-    this.init();
-    if (!this.ctx) return;
-
-    const notes = [261.63, 329.63, 392.00, 523.25];
-    const now = this.ctx.currentTime;
-    
-    notes.forEach((freq, idx) => {
-      const osc = this.ctx.createOscillator();
-      const gainNode = this.ctx.createGain();
-      
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.12);
-      
-      gainNode.gain.setValueAtTime(0, now + idx * 0.12);
-      gainNode.gain.linearRampToValueAtTime(0.05, now + idx * 0.12 + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.5);
-      
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 1800;
-
-      osc.connect(filter);
-      filter.connect(gainNode);
-      gainNode.connect(this.ctx.destination);
-      
-      osc.start(now + idx * 0.12);
-      osc.stop(now + idx * 0.12 + 0.5);
-    });
-  }
-}
-
-const sfx = new SoundFXEngine();
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM 엘리먼트 정의
+  const loginScreen = document.getElementById('login-screen');
+  const loginForm = document.getElementById('login-form');
+  const loginTokenInput = document.getElementById('login-token');
+  const loginCookieGroup = document.getElementById('login-cookie-group');
+  const loginCookieInput = document.getElementById('login-cookie');
+  const loginStatus = document.getElementById('login-status');
+  const loginStatusMsg = document.getElementById('login-status-message');
+
   const mainScreen = document.getElementById('main-screen');
   const analyzerForm = document.getElementById('analyzer-form');
   const slackUrlInput = document.getElementById('slack-url');
   const submitBtn = document.getElementById('submit-btn');
-  const spinner = submitBtn.querySelector('.spinner');
-  const btnText = submitBtn.querySelector('.btn-text');
-
   const statusContainer = document.getElementById('status-container');
   const statusMessage = document.getElementById('status-message');
 
@@ -243,6 +66,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const messageTime = document.getElementById('message-time');
   const messageText = document.getElementById('message-text');
 
+  // 탭 제어
+  const tabBtnEmojis = document.getElementById('tab-btn-emojis');
+  const tabBtnUnreacted = document.getElementById('tab-btn-unreacted');
+  const tabContentEmojis = document.getElementById('tab-content-emojis');
+  const tabContentUnreacted = document.getElementById('tab-content-unreacted');
+  const unreactedCountBadge = document.getElementById('unreacted-count-badge');
+  const unreactedUserList = document.getElementById('unreacted-user-list');
+  const btnCopyUnreacted = document.getElementById('btn-copy-unreacted');
+  const btnSummonUnreacted = document.getElementById('btn-summon-unreacted');
+
   const emojiFilterChips = document.getElementById('emoji-filter-chips');
   const selectedEmojiDetail = document.getElementById('selected-emoji-detail');
   const detailEmojiBadge = document.getElementById('detail-emoji-badge');
@@ -250,239 +83,113 @@ document.addEventListener('DOMContentLoaded', async () => {
   const detailUserList = document.getElementById('detail-user-list');
   const addToFeedbackBtn = document.getElementById('add-to-feedback-btn');
 
-  // 📊 명단 분석용 DOM 엘리먼트
+  // 유저별 분석
   const btnToggleUserAnalysis = document.getElementById('btn-toggle-user-analysis');
   const userAnalysisPanel = document.getElementById('user-analysis-panel');
   const analysisTotalCount = document.getElementById('analysis-total-count');
   const btnCopySpacedNames = document.getElementById('btn-copy-spaced-names');
   const analysisUserList = document.getElementById('analysis-user-list');
 
-  // 🌲 배경 나무용 엘리먼트 
-  const parallaxTrees = document.querySelectorAll('.parallax-tree');
-
-  const feedbackListContainer = document.getElementById('feedback-list-container');
-  const characterContainer = document.getElementById('character-container');
-  const meadowCanvas = document.getElementById('meadow-canvas');
-
-  // 🎥 카메라 스테이지 및 3단 슬라이더
-  const cameraStage = document.getElementById('camera-stage');
-  const sliderWrapper = document.getElementById('slider-wrapper');
-  const btnPrevSlide = document.getElementById('btn-prev-slide');
-
   // 모바일 바텀 시트
   const bottomSheet = document.getElementById('bottom-sheet');
   const bottomSheetHandle = document.getElementById('bottom-sheet-handle');
 
-  // 🏁 경주 제어 및 결과 오버레이
+  // 🎰 추첨기 무대 & 컨트롤
+  const slotMachineStage = document.getElementById('slot-machine-stage');
+  const slotReelContainer = document.getElementById('slot-reel-container');
+  const groupDealerStage = document.getElementById('group-dealer-stage');
+  const groupBoxesGrid = document.getElementById('group-boxes-grid');
+
   const startRaceBtn = document.getElementById('start-race-btn');
-  const raceCountdown = document.getElementById('race-countdown');
   const raceCommentary = document.getElementById('race-commentary');
   const commentaryText = document.getElementById('commentary-text');
   const btnSkipRace = document.getElementById('btn-skip-race');
+  const raceCountdown = document.getElementById('race-countdown');
 
-  // 👑 슬라이드 3 결과창 엘리먼트
+  // 결과창
   const rankingListView = document.getElementById('ranking-list-view');
   const groupRankingView = document.getElementById('group-ranking-view');
   const rankingConfirmBtn = document.getElementById('ranking-confirm-btn');
   const rankingRetryBtn = document.getElementById('ranking-retry-btn');
 
-  // 🔲 이모지 결과 전체 선택
   const selectAllEmojis = document.getElementById('select-all-emojis');
-
-  // 📋 명단 제어 액션 버튼
   const selectAllRunnersBtn = document.getElementById('select-all-runners-btn');
   const deleteAllRunnersBtn = document.getElementById('delete-all-runners-btn');
 
-  // 🎮 게임 모드 패널 필드
   const gameModePanel = document.getElementById('game-mode-panel');
   const configPodium = document.getElementById('config-podium');
   const configGroup = document.getElementById('config-group');
   const winnerCountInput = document.getElementById('winner-count-input');
   const teamCountInput = document.getElementById('team-count-input');
 
-  // 전역 상태 변수
-  let currentAnalyzedMessage = null; 
-  let activeEmojiGroup = null; 
-  let currentFeedbacksData = []; 
-  
-  // 📊 고유 참가자 맵 캐시
-  let currentUserEmojiMap = new Map();
+  const sliderWrapper = document.getElementById('slider-wrapper');
+  const btnPrevSlide = document.getElementById('btn-prev-slide');
 
-  // 가공 완료된 스프라이트 이미지 캐시
-  const transparentImages = {
-    run: '',
-    struggle1: '',
-    struggle2: '',
-    walk: ''
-  };
+  // 전역 데이터 상태
+  let currentAnalyzedMessage = null;
+  let activeEmojiGroup = null;
+  let currentFeedbacksData = [];
+  let customEmojiCache = {};
+  let currentUnreactedUsers = [];
 
-  // 캐릭터 관리 맵
-  let spawnedCharacters = new Map(); 
-
-  // 🏁 경주 상태 변수
-  let isRacing = false;
-  let raceAnimationFrameId = null;
-
-  // LERP 카메라 및 동적 줌 변수
-  let camX = 0;
-  let camY = 0;
-  let currentZoom = 1.1; 
-  let totalRunnersCount = 1;
-
-  // 🎮 경기 모드 속성 ('podium' | 'group')
-  let selectedGameMode = 'podium'; 
-  let selectedWinnersList = [];
-  let podiumWinnerCount = 1;
-  let generatedGroupsList = [];
-
-  // 💀 탈락 순위 큐
-  let eliminatedQueue = [];
-
-  // 이미지 전처리 가공
-  async function initTransparentImages() {
-    transparentImages.run = await removeBackground('char_run.png');
-    transparentImages.struggle1 = await removeBackground('char_struggle1.png');
-    transparentImages.struggle2 = await removeBackground('char_struggle2.png');
-    transparentImages.walk = await removeBackground('char_walk.png');
-  }
+  // 🎰 추첨 애니메이션 제어 변수
+  let isRolling = false;
+  let rollAnimTimer = null;
+  let reelY = 0;
+  let rollSpeed = 25;
 
   /* ====================================================
-     🎥 가로 3단 슬라이더 네비게이션 제어
+     1. 로그인 스킵 / 세션 체크
      ==================================================== */
-  function goToSlide(slideNum) {
-    if (slideNum === 3) {
-      sliderWrapper.className = 'slider-wrapper slide-to-3';
-    } else if (slideNum === 2) {
-      sliderWrapper.className = 'slider-wrapper slide-to-2';
-    } else {
-      sliderWrapper.className = 'slider-wrapper';
-    }
+  let serverHasToken = false;
+  try {
+    const statusRes = await fetch(`${getApiBase()}/api/server-token-status`);
+    const statusData = await statusRes.json();
+    serverHasToken = statusData.hasServerToken;
+  } catch (e) {}
+
+  if (serverHasToken) {
+    loadMainMeadow('server-managed', '');
+  } else {
+    loginScreen.classList.remove('hidden');
+    mainScreen.classList.add('hidden');
   }
 
-  btnPrevSlide.addEventListener('click', () => {
-    goToSlide(1);
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = loginTokenInput.value.trim();
+    const cookie = loginCookieInput.value.trim();
+    loadMainMeadow(token, cookie);
   });
 
-  /* ====================================================
-     📋 클립보드 슬랙 링크 오토페이스트 기능
-     ==================================================== */
-  async function checkClipboardAndPaste() {
-    try {
-      if (document.visibilityState !== 'visible') return;
-
-      const text = await navigator.clipboard.readText();
-      const trimmed = text.trim();
-      
-      if (trimmed.includes('.slack.com/archives/')) {
-        if (slackUrlInput.value !== trimmed) {
-          slackUrlInput.value = trimmed;
-          
-          slackUrlInput.style.borderColor = 'var(--primary)';
-          slackUrlInput.style.boxShadow = '0 0 0 3px var(--primary-glow)';
-          setTimeout(() => {
-            slackUrlInput.style.borderColor = '';
-            slackUrlInput.style.boxShadow = '';
-          }, 1500);
-        }
-      }
-    } catch (e) {
-      console.debug('클립보드 읽기 불가 또는 권한 제한');
-    }
-  }
-
-  window.addEventListener('focus', checkClipboardAndPaste);
-  document.addEventListener('visibilitychange', checkClipboardAndPaste);
-  document.addEventListener('click', checkClipboardAndPaste, { once: true });
-
-  /* ====================================================
-     🎮 게임 모드 라디오 탭 변환 바인딩
-     ==================================================== */
-  document.querySelectorAll('input[name="game-mode"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      selectedGameMode = e.target.value;
-      if (selectedGameMode === 'podium') {
-        configPodium.classList.remove('hidden');
-        configGroup.classList.add('hidden');
-      } else {
-        configPodium.classList.add('hidden');
-        configGroup.classList.remove('hidden');
-      }
-      
-      applyRealtimeGroupColors();
-    });
-  });
-
-  teamCountInput.addEventListener('change', () => {
-    if (selectedGameMode === 'group') {
-      applyRealtimeGroupColors();
-    }
-  });
-
-  function applyRealtimeGroupColors() {
-    const activeRunners = Array.from(spawnedCharacters.keys());
-    if (activeRunners.length === 0) return;
-
-    if (selectedGameMode === 'group') {
-      const M = parseInt(teamCountInput.value) || 2;
-      activeRunners.forEach((uid, idx) => {
-        const charState = spawnedCharacters.get(uid);
-        if (charState) {
-          const groupIdx = idx % M;
-          charState.element.className = `meadow-character team-${groupIdx}`;
-        }
-      });
-    } else {
-      activeRunners.forEach(uid => {
-        const charState = spawnedCharacters.get(uid);
-        if (charState) {
-          charState.element.className = 'meadow-character';
-        }
-      });
-    }
-  }
-
-  /* ====================================================
-     1. 서버 토큰 전용 — 로그인 화면 없이 바로 시작
-     ==================================================== */
-  localStorage.removeItem('slack_emoji_analyzer_token');
-  localStorage.removeItem('slack_emoji_analyzer_cookie');
-  loadMainMeadow();
-
-  /* ====================================================
-     2. 메인 Meadow 서비스 로드 및 이모지 캐싱
-     ==================================================== */
-
-  async function loadMainMeadow() {
+  async function loadMainMeadow(token, cookie) {
     mainScreen.classList.remove('hidden');
-
-    await initTransparentImages();
+    loginScreen.classList.add('hidden');
 
     try {
       const res = await fetch(`${getApiBase()}/api/emojis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({ token: token || '', cookie: cookie || '' })
       });
       const data = await res.json();
       if (res.ok && data.ok) {
         customEmojiCache = data.emoji || {};
       }
     } catch (e) {
-      console.warn('커스텀 이모지 로드 실패:', e.message);
+      console.warn('이모지 로드 예외:', e.message);
     }
 
     loadFeedbacks(true);
     bottomSheet.classList.add('expanded');
-    checkClipboardAndPaste();
   }
 
   /* ====================================================
-     2.1 슬랙 메시지 분석 및 결과 출력
+     2. 슬랙 메시지 분석 및 결과 처리
      ==================================================== */
   analyzerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = slackUrlInput.value.trim();
-
     setLoading(true);
     statusContainer.classList.add('hidden');
 
@@ -500,6 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       currentAnalyzedMessage = data.message;
       renderAnalysisResult(data.message);
+      resultSection.classList.remove('hidden');
     } catch (err) {
       showError(err.message);
     } finally {
@@ -507,1213 +215,483 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  function setLoading(isLoading) {
-    if (isLoading) {
-      submitBtn.disabled = true;
-      spinner.classList.remove('hidden');
-      btnText.textContent = '가져오는 중...';
+  function renderAnalysisResult(msg) {
+    messageAvatar.src = msg.user.avatar || 'https://via.placeholder.com/40';
+    messageAuthor.textContent = msg.user.real_name || msg.user.name;
+    messageTime.textContent = msg.ts ? new Date(parseFloat(msg.ts) * 1000).toLocaleString('ko-KR') : '';
+    messageText.innerHTML = parseTextEmojis(msg.text, customEmojiCache);
+
+    // 미반응자 (이모지 안 누른 채널 유저)
+    currentUnreactedUsers = msg.unreactedUsers || [];
+    unreactedCountBadge.textContent = currentUnreactedUsers.length;
+    renderUnreactedList(currentUnreactedUsers);
+
+    // 이모지 필터 칩
+    emojiFilterChips.innerHTML = '';
+    const reactions = msg.reactions || [];
+
+    reactions.forEach(r => {
+      const chip = document.createElement('div');
+      chip.className = 'emoji-chip';
+      chip.dataset.emojiName = r.name;
+      chip.innerHTML = `<span class="chip-icon">${renderEmojiIcon(r.name)}</span> <span class="chip-name">:${r.name}:</span> <span class="chip-count">${r.count}</span>`;
+
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('selected');
+        updateSelectedEmojiDetail(r);
+      });
+      emojiFilterChips.appendChild(chip);
+    });
+
+    if (reactions.length > 0) {
+      selectAllEmojis.checked = true;
+      toggleSelectAllEmojis(true);
+    }
+
+    renderUserAnalysisPanel(reactions);
+  }
+
+  function renderUnreactedList(users) {
+    unreactedUserList.innerHTML = '';
+    if (!users || users.length === 0) {
+      unreactedUserList.innerHTML = '<p class="empty-text">해당 채널의 모든 유저가 이모지를 달았습니다! 🎉</p>';
+      return;
+    }
+
+    users.forEach(u => {
+      const item = document.createElement('div');
+      item.className = 'unreacted-user-item';
+      item.innerHTML = `
+        <img src="${u.avatar || 'https://via.placeholder.com/24'}" alt="${u.real_name}">
+        <span class="uname">${u.real_name || u.name}</span>
+      `;
+      unreactedUserList.appendChild(item);
+    });
+  }
+
+  // 탭 바꾸기
+  tabBtnEmojis.addEventListener('click', () => {
+    tabBtnEmojis.classList.add('active');
+    tabBtnUnreacted.classList.remove('active');
+    tabContentEmojis.classList.remove('hidden');
+    tabContentUnreacted.classList.add('hidden');
+  });
+
+  tabBtnUnreacted.addEventListener('click', () => {
+    tabBtnUnreacted.classList.add('active');
+    tabBtnEmojis.classList.remove('active');
+    tabContentUnreacted.classList.remove('hidden');
+    tabContentEmojis.classList.add('hidden');
+  });
+
+  // 미반응자 명단 복사
+  btnCopyUnreacted.addEventListener('click', () => {
+    if (currentUnreactedUsers.length === 0) return;
+    const names = currentUnreactedUsers.map(u => u.real_name || u.name).join(' ');
+    navigator.clipboard.writeText(names);
+    alert(`미반응자 ${currentUnreactedUsers.length}명의 이름이 복사되었습니다!`);
+  });
+
+  // 미반응자 추첨기 소환
+  btnSummonUnreacted.addEventListener('click', () => {
+    if (currentUnreactedUsers.length === 0) return;
+    saveFeedbackGroup('🚨 이모지 미반응자', currentUnreactedUsers);
+  });
+
+  function renderEmojiIcon(name) {
+    if (EMOJI_MAP[name]) return EMOJI_MAP[name];
+    if (customEmojiCache[name]) {
+      return `<img src="${customEmojiCache[name]}" style="width:16px;height:16px;vertical-align:middle;">`;
+    }
+    return `:${name}:`;
+  }
+
+  function updateSelectedEmojiDetail(reactionData) {
+    activeEmojiGroup = reactionData;
+    selectedEmojiDetail.classList.remove('hidden');
+    detailEmojiBadge.innerHTML = renderEmojiIcon(reactionData.name);
+    detailEmojiCount.textContent = `${reactionData.users.length}명`;
+
+    detailUserList.innerHTML = reactionData.users.map(u => `
+      <div class="user-chip">
+        <img src="${u.avatar || 'https://via.placeholder.com/20'}" class="user-chip-avatar">
+        <span>${u.real_name || u.name}</span>
+      </div>
+    `).join('');
+  }
+
+  function toggleSelectAllEmojis(isSelected) {
+    const chips = emojiFilterChips.querySelectorAll('.emoji-chip');
+    chips.forEach(chip => {
+      if (isSelected) chip.classList.add('selected');
+      else chip.classList.remove('selected');
+    });
+
+    if (isSelected && currentAnalyzedMessage && currentAnalyzedMessage.reactions) {
+      const allUsersMap = new Map();
+      currentAnalyzedMessage.reactions.forEach(r => {
+        r.users.forEach(u => allUsersMap.set(u.id, u));
+      });
+      activeEmojiGroup = {
+        name: '전체 선택',
+        count: allUsersMap.size,
+        users: Array.from(allUsersMap.values())
+      };
+      selectedEmojiDetail.classList.remove('hidden');
+      detailEmojiBadge.textContent = '🌟';
+      detailEmojiCount.textContent = `${allUsersMap.size}명 (모든 반응자)`;
+      detailUserList.innerHTML = activeEmojiGroup.users.map(u => `
+        <div class="user-chip">
+          <img src="${u.avatar || 'https://via.placeholder.com/20'}" class="user-chip-avatar">
+          <span>${u.real_name || u.name}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  selectAllEmojis.addEventListener('change', (e) => toggleSelectAllEmojis(e.target.checked));
+
+  addToFeedbackBtn.addEventListener('click', () => {
+    if (!currentAnalyzedMessage || !activeEmojiGroup) return;
+    saveFeedbackGroup(activeEmojiGroup.name, activeEmojiGroup.users);
+  });
+
+  async function saveFeedbackGroup(emojiName, users) {
+    try {
+      const res = await fetch(`${getApiBase()}/api/feedbacks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageLink: slackUrlInput.value.trim() || 'Custom Group',
+          messageText: currentAnalyzedMessage ? currentAnalyzedMessage.text : '',
+          emoji: emojiName,
+          users: users
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        renderFeedbackList(data.feedbacks);
+        sliderWrapper.style.transform = 'translateX(-33.333%)';
+      }
+    } catch (e) {
+      alert('소환 에러: ' + e.message);
+    }
+  }
+
+  /* ====================================================
+     3. 추첨 명단 관리 및 🎰 치지직 룰렛 추첨 엔진
+     ==================================================== */
+  async function loadFeedbacks(skipSync = false) {
+    try {
+      const res = await fetch(`${getApiBase()}/api/feedbacks`);
+      const data = await res.json();
+      if (data.ok) {
+        renderFeedbackList(data.feedbacks);
+      }
+    } catch (e) {}
+  }
+
+  function getUniqueActiveRunners() {
+    const runnerMap = new Map();
+    currentFeedbacksData.forEach(f => {
+      f.users.forEach(u => {
+        if (!u.done && !runnerMap.has(u.id)) {
+          runnerMap.set(u.id, u);
+        }
+      });
+    });
+    return Array.from(runnerMap.values());
+  }
+
+  function renderFeedbackList(feedbacks) {
+    currentFeedbacksData = feedbacks || [];
+
+    if (currentFeedbacksData.length === 0) {
+      document.getElementById('feedback-list-container').innerHTML = '<p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
+      startRaceBtn.classList.add('hidden');
+      renderSlotReelPreview([]);
+      return;
+    }
+
+    startRaceBtn.classList.remove('hidden');
+    const uniqueRunners = getUniqueActiveRunners();
+    renderSlotReelPreview(uniqueRunners);
+
+    let html = '';
+    currentFeedbacksData.forEach(f => {
+      html += `
+        <div class="feedback-group-item">
+          <div class="group-title">
+            <span>:${f.emoji}: (${f.users.length}명)</span>
+            <button class="btn-danger-xs" onclick="deleteGroup('${f.messageLink}', '${f.emoji}')">삭제</button>
+          </div>
+          <div class="group-users">
+            ${f.users.map(u => `
+              <span class="user-tag ${u.done ? 'excluded' : ''}">${u.real_name || u.name}</span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    });
+    document.getElementById('feedback-list-container').innerHTML = html;
+  }
+
+  function renderSlotReelPreview(runners) {
+    slotReelContainer.innerHTML = '';
+    if (!runners || runners.length === 0) {
+      slotReelContainer.innerHTML = `
+        <div class="slot-card-item empty-card">
+          <span class="card-icon">🎰</span>
+          <span class="card-name">참가자를 소환해주세요!</span>
+        </div>
+      `;
+      return;
+    }
+
+    runners.forEach(u => {
+      const card = document.createElement('div');
+      card.className = 'slot-card-item';
+      card.innerHTML = `
+        <img src="${u.avatar || 'https://via.placeholder.com/38'}" class="card-avatar">
+        <span class="card-name">${u.real_name || u.name}</span>
+      `;
+      slotReelContainer.appendChild(card);
+    });
+  }
+
+  // 추첨 모드 탭 전환
+  const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
+  gameModeRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      if (e.target.value === 'group') {
+        configPodium.classList.add('hidden');
+        configGroup.classList.remove('hidden');
+        slotMachineStage.classList.add('hidden');
+        groupDealerStage.classList.remove('hidden');
+      } else {
+        configGroup.classList.add('hidden');
+        configPodium.classList.remove('hidden');
+        groupDealerStage.classList.add('hidden');
+        slotMachineStage.classList.remove('hidden');
+      }
+    });
+  });
+
+  /* ====================================================
+     4. 🎰 치지직 룰렛 추첨 애니메이션 실행기
+     ==================================================== */
+  startRaceBtn.addEventListener('click', runChzzkLottery);
+
+  function runChzzkLottery() {
+    const runners = getUniqueActiveRunners();
+    if (runners.length === 0) {
+      alert('추첨 대상 유저가 없습니다!');
+      return;
+    }
+
+    const mode = document.querySelector('input[name="game-mode"]:checked').value;
+    raceCommentary.classList.remove('hidden');
+    isRolling = true;
+
+    if (mode === 'podium') {
+      const winCount = Math.min(parseInt(winnerCountInput.value) || 1, runners.length);
+      startSlotRollAnimation(runners, winCount);
     } else {
+      const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
+      startGroupDealerAnimation(runners, teamCount);
+    }
+  }
+
+  function startSlotRollAnimation(runners, winCount) {
+    commentaryText.textContent = '🎰 치지직 룰렛 돌리는 중... 틱틱틱!';
+    
+    // 무작위 셔플로 당첨자 선정
+    const shuffled = [...runners].sort(() => Math.random() - 0.5);
+    const winners = shuffled.slice(0, winCount);
+
+    // 슬롯 릴 구성 (반복 순환 카드 생성)
+    let reelCardsHtml = '';
+    for (let i = 0; i < 8; i++) {
+      runners.forEach(u => {
+        reelCardsHtml += `
+          <div class="slot-card-item">
+            <img src="${u.avatar || 'https://via.placeholder.com/38'}" class="card-avatar">
+            <span class="card-name">${u.real_name || u.name}</span>
+          </div>
+        `;
+      });
+    }
+    slotReelContainer.innerHTML = reelCardsHtml;
+
+    let startTime = Date.now();
+    let duration = 3000; // 3초 애니메이션
+
+    function rollLoop() {
+      if (!isRolling) return;
+      let elapsed = Date.now() - startTime;
+      let progress = elapsed / duration;
+
+      if (progress < 1) {
+        // 감속 물리
+        let speed = Math.max(2, 35 * (1 - Math.pow(progress, 2)));
+        reelY -= speed;
+        if (Math.abs(reelY) > 1500) reelY = 0;
+        slotReelContainer.style.transform = `translateY(${reelY}px)`;
+        rollAnimTimer = requestAnimationFrame(rollLoop);
+      } else {
+        // 멈춤 및 당첨 카드 하이라이트
+        finishSlotLottery(winners);
+      }
+    }
+    rollLoop();
+  }
+
+  function finishSlotLottery(winners) {
+    isRolling = false;
+    cancelAnimationFrame(rollAnimTimer);
+    commentaryText.textContent = `🎉 축하합니다! ${winners.length}명의 당첨자 탄생!`;
+
+    // 당첨자 릴 표시
+    slotReelContainer.innerHTML = winners.map(w => `
+      <div class="slot-card-item winner-active">
+        <img src="${w.avatar || 'https://via.placeholder.com/38'}" class="card-avatar">
+        <span class="card-name">🎉 ${w.real_name || w.name}</span>
+      </div>
+    `).join('');
+    slotReelContainer.style.transform = 'translateY(0px)';
+
+    setTimeout(() => {
+      showFinalResultView('podium', winners);
+    }, 1500);
+  }
+
+  function startGroupDealerAnimation(runners, teamCount) {
+    commentaryText.textContent = '🎴 팀 카드를 분배하는 중...';
+    const shuffled = [...runners].sort(() => Math.random() - 0.5);
+    const teams = Array.from({ length: teamCount }, () => []);
+
+    shuffled.forEach((runner, idx) => {
+      teams[idx % teamCount].push(runner);
+    });
+
+    groupBoxesGrid.innerHTML = teams.map((team, tIdx) => `
+      <div class="group-team-box">
+        <div class="team-title"><span>TEAM ${tIdx + 1}</span> <span>${team.length}명</span></div>
+        <div class="team-members">
+          ${team.map(m => `<span class="group-member-pill">${m.real_name || m.name}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    setTimeout(() => {
+      showFinalResultView('group', teams);
+    }, 1500);
+  }
+
+  btnSkipRace.addEventListener('click', () => {
+    if (!isRolling) return;
+    const mode = document.querySelector('input[name="game-mode"]:checked').value;
+    const runners = getUniqueActiveRunners();
+    if (mode === 'podium') {
+      const winCount = Math.min(parseInt(winnerCountInput.value) || 1, runners.length);
+      const winners = [...runners].sort(() => Math.random() - 0.5).slice(0, winCount);
+      finishSlotLottery(winners);
+    } else {
+      const teamCount = Math.min(parseInt(teamCountInput.value) || 2, runners.length);
+      startGroupDealerAnimation(runners, teamCount);
+    }
+  });
+
+  function showFinalResultView(mode, resultData) {
+    raceCommentary.classList.add('hidden');
+    sliderWrapper.style.transform = 'translateX(-66.666%)';
+
+    if (mode === 'podium') {
+      rankingListView.classList.remove('hidden');
+      groupRankingView.classList.add('hidden');
+      rankingListView.innerHTML = resultData.map((w, idx) => `
+        <div class="winner-result-card">
+          <span class="winner-rank-badge">${idx + 1}등</span>
+          <img src="${w.avatar || 'https://via.placeholder.com/48'}" class="winner-avatar">
+          <div class="winner-info">
+            <div class="name">${w.real_name || w.name}</div>
+            <div style="font-size:12px;color:#94a3b8;">🎉 당첨을 축하합니다!</div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      groupRankingView.classList.remove('hidden');
+      rankingListView.classList.add('hidden');
+      groupRankingView.innerHTML = resultData.map((team, tIdx) => `
+        <div class="panel-card" style="text-align:left;margin-bottom:8px;">
+          <h4 style="color:#00e5ff;margin-bottom:6px;">TEAM ${tIdx + 1} (${team.length}명)</h4>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${team.map(m => `<span class="group-member-pill">${m.real_name || m.name}</span>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  rankingConfirmBtn.addEventListener('click', () => {
+    sliderWrapper.style.transform = 'translateX(0%)';
+  });
+
+  rankingRetryBtn.addEventListener('click', () => {
+    sliderWrapper.style.transform = 'translateX(-33.333%)';
+    runChzzkLottery();
+  });
+
+  btnPrevSlide.addEventListener('click', () => {
+    sliderWrapper.style.transform = 'translateX(0%)';
+  });
+
+  function setLoading(loading) {
+    if (loading) {
+      submitBtn.querySelector('.spinner').classList.remove('hidden');
+      submitBtn.querySelector('.btn-text').textContent = '분석 중...';
+      submitBtn.disabled = true;
+    } else {
+      submitBtn.querySelector('.spinner').classList.add('hidden');
+      submitBtn.querySelector('.btn-text').textContent = '이모지 가져오기';
       submitBtn.disabled = false;
-      spinner.classList.add('hidden');
-      btnText.textContent = '이모지 가져오기';
     }
   }
 
   function showError(msg) {
     statusContainer.classList.remove('hidden');
-    statusMessage.className = 'status-message error';
     statusMessage.textContent = msg;
   }
 
-  function renderAnalysisResult(message) {
-    resultSection.classList.remove('hidden');
-    selectedEmojiDetail.classList.add('hidden');
-    activeEmojiGroup = null;
-
-    userAnalysisPanel.classList.add('hidden');
-
-    messageAvatar.src = message.user.avatar || 'https://via.placeholder.com/72?text=?';
-    messageAuthor.textContent = getUserDisplayName(message.user);
-    messageTime.textContent = formatTimestamp(message.ts);
-    
-    messageText.innerHTML = parseTextEmojis(message.text);
-
-    emojiFilterChips.innerHTML = '';
-    if (message.reactions.length === 0) {
-      emojiFilterChips.innerHTML = '<p class="text-muted">등록된 이모지 반응이 없습니다.</p>';
-      return;
-    }
-
-    message.reactions.forEach(r => {
-      const chip = document.createElement('div');
-      chip.className = 'filter-chip';
-      chip.innerHTML = `${getEmojiDisplay(r.name)} <span class="chip-count">${r.count}</span>`;
-      chip.addEventListener('click', () => {
-        selectAllEmojis.checked = false;
-        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        selectEmojiGroup(r);
-      });
-      emojiFilterChips.appendChild(chip);
-    });
-
-    selectAllEmojis.checked = false;
-    const firstChip = emojiFilterChips.querySelector('.filter-chip');
-    if (firstChip) {
-      firstChip.click();
-    }
-
-    currentUserEmojiMap.clear();
-    message.reactions.forEach(r => {
+  function renderUserAnalysisPanel(reactions) {
+    const userMap = new Map();
+    reactions.forEach(r => {
       r.users.forEach(u => {
-        if (!currentUserEmojiMap.has(u.id)) {
-          currentUserEmojiMap.set(u.id, {
-            user: u,
-            emojis: new Set()
-          });
+        if (!userMap.has(u.id)) {
+          userMap.set(u.id, { user: u, emojis: [] });
         }
-        currentUserEmojiMap.get(u.id).emojis.add(r.name);
+        userMap.get(u.id).emojis.push(r.name);
       });
     });
 
-    analysisTotalCount.textContent = `총 ${currentUserEmojiMap.size}명`;
-
-    analysisUserList.innerHTML = '';
-    currentUserEmojiMap.forEach((item) => {
-      const row = document.createElement('div');
-      row.className = 'analysis-user-row';
-
-      const prof = document.createElement('div');
-      prof.className = 'analysis-user-profile';
-      prof.innerHTML = `
-        <img class="analysis-user-avatar" src="${item.user.avatar || 'https://via.placeholder.com/32?text=?'}" alt="avatar">
-        <span class="analysis-user-name">${getUserDisplayName(item.user)}</span>
-      `;
-
-      const emojis = document.createElement('div');
-      emojis.className = 'analysis-user-emojis';
-      item.emojis.forEach(emojiName => {
-        const span = document.createElement('span');
-        span.className = 'analysis-emoji-badge';
-        span.innerHTML = getEmojiDisplay(emojiName);
-        emojis.appendChild(span);
-      });
-
-      row.appendChild(prof);
-      row.appendChild(emojis);
-      analysisUserList.appendChild(row);
-    });
+    analysisTotalCount.textContent = `총 ${userMap.size}명`;
+    analysisUserList.innerHTML = Array.from(userMap.values()).map(item => `
+      <div class="user-analysis-item" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;">${item.user.real_name || item.user.name}</span>
+        <span>${item.emojis.map(e => renderEmojiIcon(e)).join(' ')}</span>
+      </div>
+    `).join('');
   }
 
   btnToggleUserAnalysis.addEventListener('click', () => {
     userAnalysisPanel.classList.toggle('hidden');
   });
 
-  btnCopySpacedNames.addEventListener('click', async () => {
-    if (currentUserEmojiMap.size === 0) {
-      alert('분석된 명단이 비어있습니다.');
-      return;
-    }
-
-    try {
-      const namesArray = [];
-      currentUserEmojiMap.forEach((item) => {
-        namesArray.push(getUserDisplayName(item.user));
-      });
-
-      const copyStr = namesArray.join(' ');
-      await navigator.clipboard.writeText(copyStr);
-      alert(`📋 고유 반응자 이름들이 스페이스로 구분되어 복사되었습니다!\n(${copyStr})`);
-    } catch (err) {
-      alert('클립보드 복사에 실패했습니다.');
-    }
+  btnCopySpacedNames.addEventListener('click', () => {
+    const runners = getUniqueActiveRunners();
+    if (runners.length === 0) return;
+    const names = runners.map(u => u.real_name || u.name).join(' ');
+    navigator.clipboard.writeText(names);
+    alert(`명단 ${runners.length}명의 이름이 복사되었습니다!`);
   });
-
-  // 🔲 전체 선택 토글
-  selectAllEmojis.addEventListener('change', (e) => {
-    if (!currentAnalyzedMessage) return;
-    
-    const chips = document.querySelectorAll('.filter-chip');
-    if (e.target.checked) {
-      chips.forEach(c => c.classList.add('active'));
-      
-      const allUsersMap = new Map();
-      currentAnalyzedMessage.reactions.forEach(r => {
-        r.users.forEach(u => {
-          allUsersMap.set(u.id, u);
-        });
-      });
-
-      const mergedUsers = Array.from(allUsersMap.values());
-      activeEmojiGroup = {
-        name: '전체 이모지 반응자',
-        count: mergedUsers.length,
-        users: mergedUsers
-      };
-
-      selectedEmojiDetail.classList.remove('hidden');
-      detailEmojiBadge.innerHTML = '🌟 전체 선택';
-      detailEmojiCount.textContent = `${mergedUsers.length}명`;
-
-      detailUserList.innerHTML = '';
-      mergedUsers.forEach(u => {
-        const chip = document.createElement('div');
-        chip.className = 'user-chip';
-        chip.innerHTML = `
-          <img class="chip-avatar" src="${u.avatar || 'https://via.placeholder.com/32?text=?'}" alt="${getUserDisplayName(u)}">
-          <span class="chip-name">${getUserDisplayName(u)}</span>
-        `;
-        detailUserList.appendChild(chip);
-      });
-    } else {
-      chips.forEach(c => c.classList.remove('active'));
-      selectedEmojiDetail.classList.add('hidden');
-      activeEmojiGroup = null;
-    }
-  });
-
-  function selectEmojiGroup(reaction) {
-    activeEmojiGroup = reaction;
-    selectedEmojiDetail.classList.remove('hidden');
-
-    detailEmojiBadge.innerHTML = getEmojiDisplay(reaction.name);
-    detailEmojiCount.textContent = `${reaction.count}명`;
-
-    detailUserList.innerHTML = '';
-    reaction.users.forEach(u => {
-      const chip = document.createElement('div');
-      chip.className = 'user-chip';
-      chip.innerHTML = `
-        <img class="chip-avatar" src="${u.avatar || 'https://via.placeholder.com/32?text=?'}" alt="${getUserDisplayName(u)}">
-        <span class="chip-name">${getUserDisplayName(u)}</span>
-      `;
-      detailUserList.appendChild(chip);
-    });
-  }
-
-  /* ====================================================
-     3. 피드백 리스트 CRUD 
-     ==================================================== */
-
-  addToFeedbackBtn.addEventListener('click', async () => {
-    if (!currentAnalyzedMessage || !activeEmojiGroup) return;
-
-    try {
-      const res = await fetch(`${getApiBase()}/api/feedbacks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageLink: slackUrlInput.value.trim(),
-          messageText: currentAnalyzedMessage.text,
-          emoji: activeEmojiGroup.name,
-          users: activeEmojiGroup.users
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        renderFeedbackList(data.feedbacks, true);
-        goToSlide(2);
-
-        const usersToSpawn = activeEmojiGroup.users.map(u => ({
-          id: u.id,
-          real_name: u.real_name,
-          display_name: u.display_name || '',
-          avatar: u.avatar
-        }));
-        
-        spawnGroupOnField(usersToSpawn);
-
-      } else {
-        alert('피드백 소환 실패: ' + data.error);
-      }
-    } catch (e) {
-      alert('서버 통신 에러');
-    }
-  });
-
-  async function loadFeedbacks(skipSync = false) {
-    try {
-      const res = await fetch(`${getApiBase()}/api/feedbacks`);
-      const data = await res.json();
-      if (data.ok) {
-        renderFeedbackList(data.feedbacks, skipSync);
-      }
-    } catch (e) {
-      console.error('Failed to load feedbacks:', e);
-    }
-  }
-
-  // 🔲 명단 일괄 전체 선택
-  selectAllRunnersBtn.addEventListener('click', async () => {
-    if (currentFeedbacksData.length === 0) return;
-    if (!confirm('현재 경주 명단의 모든 사람들을 달리기에 참가(체크박스 켬)시키겠습니까?')) return;
-
-    try {
-      const promises = [];
-      currentFeedbacksData.forEach(f => {
-        f.users.forEach(u => {
-          if (u.done) {
-            promises.push(
-              fetch(`${getApiBase()}/api/feedbacks/user`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messageLink: f.messageLink, emoji: f.emoji, userId: u.id, done: false })
-              })
-            );
-          }
-        });
-      });
-
-      await Promise.all(promises);
-      loadFeedbacks(false);
-    } catch (e) {
-      alert('일괄 전체 선택 처리 실패');
-    }
-  });
-
-  // 🗑️ 명단 일괄 전체 삭제
-  deleteAllRunnersBtn.addEventListener('click', async () => {
-    if (currentFeedbacksData.length === 0) return;
-    if (!confirm('초원의 모든 소환 명단을 삭제하고 초기화하시겠습니까? (캐릭터가 모두 추방됩니다)')) return;
-
-    try {
-      const promises = currentFeedbacksData.map(f =>
-        fetch(`${getApiBase()}/api/feedbacks`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messageLink: f.messageLink, emoji: f.emoji })
-        })
-      );
-
-      await Promise.all(promises);
-      
-      for (let [uid, charState] of spawnedCharacters.entries()) {
-        clearTimeout(charState.walkTimeout);
-        clearInterval(charState.struggleInterval);
-        
-        const el = charState.element;
-        el.classList.remove('spawn', 'waddling-walk', 'focused');
-        el.classList.add('fade-out');
-        
-        spawnedCharacters.delete(uid);
-        
-        setTimeout(() => el.remove(), 700);
-      }
-      spawnedCharacters.clear();
-      
-      loadFeedbacks(true);
-    } catch (e) {
-      alert('일괄 전체 삭제 실패');
-    }
-  });
-
-  function renderFeedbackList(feedbacks, skipSync = false) {
-    currentFeedbacksData = feedbacks;
-    feedbackListContainer.innerHTML = '';
-    
-    let totalPendingUsers = 0;
-    const pendingUsers = [];
-
-    if (feedbacks.length === 0) {
-      feedbackListContainer.innerHTML = '<p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
-      if (!skipSync) syncMeadowCharacters([]);
-      
-      startRaceBtn.classList.add('hidden');
-      gameModePanel.classList.add('hidden');
-      return;
-    }
-
-    feedbacks.forEach(f => {
-      const card = document.createElement('div');
-      card.className = 'feedback-item-card';
-
-      const header = document.createElement('div');
-      header.className = 'feedback-item-header';
-
-      const title = document.createElement('div');
-      title.className = 'feedback-title';
-      title.innerHTML = `${getEmojiDisplay(f.emoji)} <span>${f.emoji}</span>`;
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn-delete-card';
-      deleteBtn.innerHTML = '&times;';
-      deleteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (confirm('이 피드백 그룹을 초원에서 추방하고 삭제하시겠습니까?')) {
-          deleteFeedbackCard(f.messageLink, f.emoji);
-        }
-      });
-
-      header.appendChild(title);
-      header.appendChild(deleteBtn);
-      card.appendChild(header);
-
-      if (f.messageText) {
-        const preview = document.createElement('div');
-        preview.className = 'feedback-msg-preview';
-        preview.textContent = f.messageText;
-        card.appendChild(preview);
-      }
-
-      const userList = document.createElement('div');
-      userList.className = 'feedback-users-list';
-
-      f.users.forEach(u => {
-        const userRow = document.createElement('div');
-        userRow.className = `feedback-user-row ${u.done ? 'done' : ''}`;
-
-        const displayName = getUserDisplayName(u);
-
-        const topRow = document.createElement('div');
-        topRow.className = 'user-row-top';
-        topRow.innerHTML = `
-          <div class="user-info-group">
-            <img class="chip-avatar" src="${u.avatar || 'https://via.placeholder.com/32?text=?'}" alt="${displayName}">
-            <span>${displayName}</span>
-          </div>
-        `;
-
-        const rowActions = document.createElement('div');
-        rowActions.className = 'user-row-actions';
-
-        const checkWrap = document.createElement('label');
-        checkWrap.className = 'checkbox-wrapper';
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = !u.done;
-        
-        checkbox.addEventListener('change', (e) => {
-          e.stopPropagation();
-          toggleUserFeedbackState(f.messageLink, f.emoji, u.id, !e.target.checked);
-        });
-
-        checkWrap.appendChild(checkbox);
-        rowActions.appendChild(checkWrap);
-        topRow.appendChild(rowActions);
-        userRow.appendChild(topRow);
-
-        const editArea = document.createElement('div');
-        editArea.className = 'user-meta-edit';
-
-        const fields = document.createElement('div');
-        fields.className = 'meta-edit-fields';
-
-        const memoInput = document.createElement('input');
-        memoInput.type = 'text';
-        memoInput.className = 'input-memo';
-        memoInput.placeholder = '✏️ 피드백 메모 입력...';
-        memoInput.value = u.memo || '';
-
-        const linkInput = document.createElement('input');
-        linkInput.type = 'url';
-        linkInput.className = 'input-link';
-        linkInput.placeholder = '🔗 참고 사이트 링크...';
-        linkInput.value = u.link || '';
-
-        const saveUserMetadata = async () => {
-          const memoVal = memoInput.value.trim();
-          const linkVal = linkInput.value.trim();
-          
-          try {
-            await fetch(`${getApiBase()}/api/feedbacks/user/meta`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                messageLink: f.messageLink,
-                emoji: f.emoji,
-                userId: u.id,
-                memo: memoVal,
-                link: linkVal
-              })
-            });
-            u.memo = memoVal;
-            u.link = linkVal;
-          } catch (err) {
-            console.error('메타데이터 임시저장 실패:', err);
-          }
-        };
-
-        memoInput.addEventListener('change', saveUserMetadata);
-        memoInput.addEventListener('blur', saveUserMetadata);
-        linkInput.addEventListener('change', saveUserMetadata);
-        linkInput.addEventListener('blur', saveUserMetadata);
-
-        memoInput.addEventListener('click', (e) => e.stopPropagation());
-        linkInput.addEventListener('click', (e) => e.stopPropagation());
-
-        fields.appendChild(memoInput);
-        fields.appendChild(linkInput);
-        editArea.appendChild(fields);
-        userRow.appendChild(editArea);
-
-        userRow.addEventListener('click', (e) => {
-          if (e.target.type === 'checkbox') return;
-          if (u.done) return;
-
-          const allRows = document.querySelectorAll('.feedback-user-row');
-          const alreadyActive = userRow.classList.contains('active-edit');
-          allRows.forEach(r => r.classList.remove('active-edit'));
-
-          if (!alreadyActive) {
-            userRow.classList.add('active-edit');
-          }
-
-          if (!spawnedCharacters.has(u.id)) {
-            spawnMeadowCharacter(u);
-          }
-          focusCharacterOnField(u.id);
-        });
-
-        userList.appendChild(userRow);
-
-        if (!u.done) {
-          totalPendingUsers++;
-          pendingUsers.push({
-            id: u.id,
-            real_name: u.real_name,
-            display_name: u.display_name,
-            avatar: u.avatar
-          });
-        }
-      });
-
-      card.appendChild(userList);
-      feedbackListContainer.appendChild(card);
-    });
-
-    if (!skipSync) {
-      syncMeadowCharacters(pendingUsers);
-    }
-
-    if (totalPendingUsers >= 2) {
-      startRaceBtn.classList.remove('hidden');
-      gameModePanel.classList.remove('hidden');
-    } else {
-      startRaceBtn.classList.add('hidden');
-      gameModePanel.classList.add('hidden');
-    }
-
-    applyRealtimeGroupColors();
-  }
-
-  function spawnMeadowCharacter(u, idx = spawnedCharacters.size) {
-    if (spawnedCharacters.has(u.id)) return;
-
-    const charEl = document.createElement('div');
-    charEl.className = 'meadow-character spawn';
-    charEl.dataset.userId = u.id;
-    
-    const displayName = getUserDisplayName(u);
-    
-    const bubble = document.createElement('div');
-    bubble.className = 'char-name-bubble';
-    bubble.textContent = displayName;
-
-    const body = document.createElement('div');
-    body.className = 'char-body';
-    body.style.backgroundImage = `url(${transparentImages.walk})`;
-
-    charEl.appendChild(bubble);
-    charEl.appendChild(body);
-
-    characterContainer.appendChild(charEl);
-
-    const charState = {
-      element: charEl,
-      bodyElement: body,
-      isDragging: false,
-      walkTimeout: null,
-      struggleInterval: null,
-      x: 0,
-      y: 0,
-      
-      theta: 0,
-      laneOffset: idx * 11,
-      speed: 0.007,
-      randomSeed: Math.random() * 10,
-      
-      // v20: 넘어짐 없이 속도 승부
-      isDead: false,
-      isFinished: false 
-    };
-
-    spawnedCharacters.set(u.id, charState);
-
-    arrangeAtStartLine(u.id, idx);
-    bindDragAndDrop(u.id);
-  }
-
-  function arrangeAtStartLine(userId, idx) {
-    const state = spawnedCharacters.get(userId);
-    if (!state) return;
-
-    // 🏃 경기장 레인 안에 밀집 출발 (세로 이탈 방지용 타이트 범위)
-    const cols = 5; 
-    const xCol = idx % cols;
-    const yRow = Math.floor(idx / cols);
-
-    state.x = 40 + xCol * 14 + Math.random() * 6;
-    state.y = 12 + (yRow * 22) % 120; 
-
-    state.element.style.transition = 'left 0.8s cubic-bezier(0.25, 1, 0.5, 1), bottom 0.8s cubic-bezier(0.25, 1, 0.5, 1)';
-    state.element.style.left = `${state.x}px`;
-    state.element.style.bottom = `${state.y}px`;
-    
-    state.bodyElement.style.transform = 'scale(0.78)';
-    state.element.style.zIndex = String(20 + Math.round(state.y));
-    
-    state.element.classList.remove('waddling-walk');
-    state.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
-
-    state.isDead = false;
-    state.isFinished = false;
-    state.element.classList.remove('dead');
-  }
-
-  function spawnGroupOnField(userList) {
-    userList.forEach((u, idx) => {
-      spawnMeadowCharacter(u, idx);
-    });
-  }
-
-  function focusCharacterOnField(userId) {
-    const charState = spawnedCharacters.get(userId);
-    if (!charState) return;
-
-    bottomSheet.classList.remove('expanded');
-
-    const el = charState.element;
-    clearTimeout(charState.walkTimeout);
-    el.classList.remove('waddling-walk');
-
-    el.classList.add('focused');
-    charState.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
-
-    setTimeout(() => {
-      const state = spawnedCharacters.get(userId);
-      if (state && !state.isDragging) {
-        el.classList.remove('focused');
-        if (!isRacing) {
-          const idx = Array.from(spawnedCharacters.keys()).indexOf(userId);
-          arrangeAtStartLine(userId, idx);
-        }
-      }
-    }, 2500);
-  }
-
-  async function toggleUserFeedbackState(messageLink, emoji, userId, done) {
-    try {
-      const res = await fetch(`${getApiBase()}/api/feedbacks/user`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageLink, emoji, userId, done })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        renderFeedbackList(data.feedbacks, true);
-      }
-    } catch (e) {
-      alert('상태 변경 실패');
-    }
-  }
-
-  async function deleteFeedbackCard(messageLink, emoji) {
-    try {
-      const res = await fetch(`${getApiBase()}/api/feedbacks`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageLink, emoji })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const deletedFeedback = data.feedbacks;
-        renderFeedbackList(deletedFeedback, true);
-        
-        const activeIds = new Set();
-        deletedFeedback.forEach(f => {
-          f.users.forEach(u => {
-            if (!u.done) activeIds.add(u.id);
-          });
-        });
-
-        for (let [uid, charState] of spawnedCharacters.entries()) {
-          if (!activeIds.has(uid)) {
-            clearTimeout(charState.walkTimeout);
-            clearInterval(charState.struggleInterval);
-            const el = charState.element;
-            el.classList.remove('spawn', 'waddling-walk', 'focused');
-            el.classList.add('fade-out');
-            spawnedCharacters.delete(uid);
-            setTimeout(() => el.remove(), 700);
-          }
-        }
-      }
-    } catch (e) {
-      alert('피드백 삭제 실패');
-    }
-  }
-
-  /* ====================================================
-     5. 🏁 v20: 2D 초장거리 마라톤(3200px) 및 넘어짐 탈락 물리
-     ==================================================== */
-
-  startRaceBtn.addEventListener('click', () => {
-    if (isRacing) return;
-    sfx.init();
-    
-    eliminatedQueue = [];
-
-    const activeRunners = [];
-    let idx = 0;
-    for (let [uid, state] of spawnedCharacters.entries()) {
-      state.isDead = false;
-      state.isFinished = false;
-      
-      state.element.classList.remove('dead', 'focused');
-      state.bodyElement.style.backgroundImage = `url(${transparentImages.run})`;
-      
-      clearTimeout(state.walkTimeout);
-      state.element.classList.remove('waddling-walk');
-      
-      arrangeAtStartLine(uid, idx);
-      state.element.classList.add('racing');
-      activeRunners.push(uid);
-      idx++;
-    }
-
-    if (activeRunners.length < 2) {
-      alert('최소 2명 이상의 캐릭터가 대기 중이어야 경주가 시작됩니다.');
-      return;
-    }
-
-    totalRunnersCount = activeRunners.length;
-    currentZoom = 1.1;
-
-    if (selectedGameMode === 'podium') {
-      podiumWinnerCount = Math.min(parseInt(winnerCountInput.value) || 1, activeRunners.length - 1);
-      selectedWinnersList = []; // 골인 순위로 확정
-      generatedGroupsList = [];
-    } else {
-      const M = parseInt(teamCountInput.value) || 2;
-      selectedWinnersList = [];
-      generatedGroupsList = Array.from({ length: M }, () => []);
-      
-      const shuffled = [...activeRunners].sort(() => Math.random() - 0.5);
-      shuffled.forEach((uid, index) => {
-        const groupIdx = index % M;
-        
-        let userObj = null;
-        for (let f of currentFeedbacksData) {
-          const matchUser = f.users.find(u => u.id === uid && !u.done);
-          if (matchUser) {
-            userObj = matchUser;
-            break;
-          }
-        }
-
-        generatedGroupsList[groupIdx].push({
-          id: uid,
-          real_name: userObj ? userObj.real_name : uid,
-          display_name: userObj ? userObj.display_name : '',
-          avatar: userObj ? userObj.avatar : 'https://via.placeholder.com/32'
-        });
-
-        const charState = spawnedCharacters.get(uid);
-        if (charState) {
-          charState.element.className = `meadow-character team-${groupIdx} racing`;
-        }
-      });
-    }
-
-    bottomSheet.classList.remove('expanded');
-    runRaceCountdown(activeRunners);
-  });
-
-  function runRaceCountdown(activeRunners) {
-    raceCountdown.classList.remove('hidden');
-    raceCommentary.classList.remove('hidden');
-    
-    const numEl = raceCountdown.querySelector('.countdown-num');
-    
-    let count = 3;
-    numEl.textContent = count;
-    
-    if (selectedGameMode === 'podium') {
-      commentaryText.textContent = `[중계] 🏆 선착순 모드! 속도 경쟁으로 상위 ${podiumWinnerCount}명이 당첨됩니다!`;
-    } else {
-      const M = parseInt(teamCountInput.value) || 2;
-      commentaryText.textContent = `[중계] 👥 조 짜기 모드! 총 ${M}개조로 나뉘어 단체전 우호 질주가 펼쳐집니다!`;
-    }
-    
-    sfx.playBeep(600, 0.1);
-
-    const timer = setInterval(() => {
-      count--;
-      if (count > 0) {
-        numEl.textContent = count;
-        sfx.playBeep(600, 0.1);
-      } else if (count === 0) {
-        numEl.textContent = 'START!';
-        sfx.playShot();
-      } else {
-        clearInterval(timer);
-        raceCountdown.classList.add('hidden');
-        startStadiumRace();
-      }
-    }, 1000);
-  }
-
-  btnSkipRace.addEventListener('click', () => {
-    if (!isRacing) return;
-    isRacing = false;
-    cancelAnimationFrame(raceAnimationFrameId);
-    finishRace();
-  });
-
-  function startStadiumRace() {
-    isRacing = true;
-
-    const FINISH_X = 2500;
-    const RACE_LIMIT_MS = 15000;
-    const raceStartTime = performance.now();
-    let lastFrameTime = raceStartTime;
-
-    // 사람마다 뚜렷한 고유 속도 (겹치지 않게 랭크 배정)
-    // 거리 ~2450px → 420~560 px/s면 약 4.4~5.8초에 선두 골인
-    const runners = Array.from(spawnedCharacters.keys());
-    const speedRanks = runners
-      .map((_, i) => i)
-      .sort(() => Math.random() - 0.5);
-
-    runners.forEach((uid, i) => {
-      const state = spawnedCharacters.get(uid);
-      const rank = speedRanks[i];
-      const t = runners.length <= 1 ? 1 : rank / (runners.length - 1);
-      // 최소 간격이 생기도록 선형 스프레드 + 소량 노이즈
-      state.speed = 420 + t * 140 + (Math.random() - 0.5) * 18;
-      state.speedJitter = 0.35 + Math.random() * 0.4; // 약하게만 출렁
-      state.y = Math.max(8, Math.min(125, state.y));
-      state.element.style.opacity = '0';
-    });
-
-    camX = 0;
-    camY = 0;
-    currentZoom = 1.0;
-    cameraStage.style.transformOrigin = '50% 42%';
-
-    let frameIndex = 0;
-    let lastCommentTime = 0;
-    let leaderUid = null;
-
-    function updateRaceFrame(now) {
-      if (!isRacing) return;
-      frameIndex++;
-
-      const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
-      lastFrameTime = now;
-      const elapsed = now - raceStartTime;
-
-      if (elapsed >= RACE_LIMIT_MS) {
-        isRacing = false;
-        cancelAnimationFrame(raceAnimationFrameId);
-        finishRace();
-        return;
-      }
-
-      let unfinishedCount = 0;
-      spawnedCharacters.forEach((st) => {
-        if (!st.isFinished) unfinishedCount++;
-      });
-
-      if (unfinishedCount === 0) {
-        isRacing = false;
-        cancelAnimationFrame(raceAnimationFrameId);
-        finishRace();
-        return;
-      }
-
-      const allRunners = [];
-      spawnedCharacters.forEach((st, uid) => {
-        allRunners.push({ id: uid, state: st });
-      });
-
-      // 현재 1등 (가장 앞)
-      let leader = allRunners[0];
-      allRunners.forEach(r => {
-        if (r.state.x > leader.state.x) leader = r;
-      });
-      leaderUid = leader.id;
-      const leadX = leader.state.x;
-
-      if (frameIndex - lastCommentTime >= 55) {
-        lastCommentTime = frameIndex;
-        const opts = selectedGameMode === 'podium'
-          ? [
-              `[중계] 🏆 속도 경쟁 중! 1등을 카메라가 추적합니다!`,
-              `[중계] 선두가 치고 나갑니다!`,
-              `[중계] 피니시 아치를 향해 전력 질주!`
-            ]
-          : [
-              `[중계] 👥 선두를 카메라가 따라갑니다!`,
-              `[중계] 조별 대형으로 질주 중!`,
-              `[중계] 단체 골인을 향한 힘찬 전진!`
-            ];
-        commentaryText.textContent = opts[Math.floor(Math.random() * opts.length)];
-      }
-
-      // 이동 — 넘어짐 없음, 카메라에는 1등만 표시
-      spawnedCharacters.forEach((state, uid) => {
-        if (state.x >= FINISH_X) {
-          if (!state.isFinished) {
-            state.isFinished = true;
-            state.x = FINISH_X;
-            const charName = getUserDisplayName({
-              display_name: state.element.querySelector('.char-name-bubble').textContent
-            });
-            state.element.querySelector('.char-name-bubble').innerHTML = `🏁 ${charName}`;
-            commentaryText.textContent = `[중계] 🎉 ${charName} 선수, 피니시 아치 골인!`;
-          }
-          state.element.style.left = `${state.x - 30}px`;
-          state.element.style.bottom = `${state.y}px`;
-          state.element.style.opacity = uid === leaderUid ? '1' : '0';
-          return;
-        }
-
-        const jitter = Math.sin(frameIndex * 0.09 * state.speedJitter + state.randomSeed) * 10;
-        state.x += (state.speed + jitter) * dt;
-
-        state.y = Math.max(8, Math.min(125, state.y));
-        state.bodyElement.classList.remove('facing-left');
-
-        const scale = 0.72 + (state.y / 260) * 0.14;
-        state.element.style.left = `${state.x - 30}px`;
-        state.element.style.bottom = `${state.y}px`;
-        state.bodyElement.style.transform = `scale(${scale})`;
-        state.element.style.zIndex = String(20 + Math.round(state.y));
-        state.element.style.opacity = uid === leaderUid ? '1' : '0';
-        state.element.classList.toggle('race-leader', uid === leaderUid);
-      });
-
-      // 🎥 1등 부드러운 추적 (프레임레이트 독립 지수 보간)
-      const mockupW = document.querySelector('.mobile-mockup')?.clientWidth || 390;
-      const viewCenter = mockupW / 2;
-      // 살짝 앞서 예측해 따라가는 느낌
-      const lookAhead = leader.state.speed * 0.08;
-      const targetCamX = viewCenter - (leadX + lookAhead);
-      const follow = 1 - Math.exp(-10 * dt);
-      camX += (targetCamX - camX) * follow;
-
-      cameraStage.style.transform = `translateX(${camX}px)`;
-
-      parallaxTrees.forEach((tree, tIdx) => {
-        tree.style.transform = `translateX(${tIdx * 105 + camX * 0.35}px)`;
-      });
-
-      raceAnimationFrameId = requestAnimationFrame(updateRaceFrame);
-    }
-
-    // 출발 직후 1등 위치로 카메라 스냅 후 부드럽게 추적
-    const firstLeader = runners
-      .map(uid => ({ uid, state: spawnedCharacters.get(uid) }))
-      .sort((a, b) => b.state.x - a.state.x)[0];
-    if (firstLeader) {
-      const mockupW = document.querySelector('.mobile-mockup')?.clientWidth || 390;
-      camX = mockupW / 2 - firstLeader.state.x;
-      cameraStage.style.transform = `translateX(${camX}px)`;
-    }
-
-    raceAnimationFrameId = requestAnimationFrame(updateRaceFrame);
-  }
-
-  function finishRace() {
-    cameraStage.style.transformOrigin = '50% 42%';
-    cameraStage.style.transform = 'translate(0px, 0px)';
-    sfx.playWoohoo();
-
-    bottomSheet.classList.add('expanded');
-    goToSlide(3);
-
-    if (selectedGameMode === 'podium') {
-      rankingListView.classList.remove('hidden');
-      groupRankingView.classList.add('hidden');
-
-      const ranked = [];
-      spawnedCharacters.forEach((state, uid) => {
-        ranked.push({ uid, x: state.x });
-      });
-      ranked.sort((a, b) => b.x - a.x);
-
-      // 골인 순위(속도)로 당첨자 확정
-      selectedWinnersList = ranked.slice(0, podiumWinnerCount).map(r => r.uid);
-
-      ranked.forEach(r => {
-        const charState = spawnedCharacters.get(r.uid);
-        if (charState) {
-          charState.element.classList.remove('racing');
-          charState.element.classList.add('focused');
-          charState.element.style.opacity = '1';
-          charState.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
-          charState.bodyElement.style.transform = 'scale(1.18)';
-          charState.element.style.left = '2490px';
-          charState.element.style.bottom = `${charState.y}px`;
-          charState.element.style.zIndex = '125';
-        }
-      });
-
-      rankingListView.innerHTML = '';
-      
-      ranked.forEach((r, index) => {
-        const rank = index + 1;
-        const uid = r.uid;
-        
-        let userObj = null;
-        for (let f of currentFeedbacksData) {
-          const matchUser = f.users.find(u => u.id === uid);
-          if (matchUser) {
-            userObj = matchUser;
-            break;
-          }
-        }
-
-        const uName = userObj ? getUserDisplayName(userObj) : uid;
-        const uAvatar = userObj ? userObj.avatar : 'https://via.placeholder.com/32';
-        const isWinner = rank <= podiumWinnerCount;
-
-        const item = document.createElement('div');
-        item.className = `rank-item ${isWinner ? 'winner' : 'loser'}`;
-        
-        item.innerHTML = `
-          <span class="rank-badge">${isWinner ? `👑 ${rank}위` : `${rank}위`}</span>
-          <img src="${uAvatar}" alt="Avatar">
-          <span class="rank-name">${uName}</span>
-        `;
-        rankingListView.appendChild(item);
-      });
-
-      commentaryText.textContent = `[중계] 🎉 경기 종료! 최종 순위표가 발표되었습니다.`;
-
-    } else {
-      rankingListView.classList.add('hidden');
-      groupRankingView.classList.remove('hidden');
-
-      spawnedCharacters.forEach(state => {
-        state.element.classList.remove('racing');
-        state.element.classList.add('focused');
-        state.element.style.opacity = '1';
-        state.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
-        state.element.style.left = '2490px';
-        state.element.style.zIndex = '125';
-      });
-
-      groupRankingView.innerHTML = '';
-      const teamIcons = ['🔵', '🔴', '🟡', '🟢'];
-      const teamNames = ['블루조 (1조)', '핑크조 (2조)', '골드조 (3조)', '그린조 (4조)'];
-
-      generatedGroupsList.forEach((group, gIdx) => {
-        if (group.length === 0) return; 
-
-        const card = document.createElement('div');
-        card.className = 'group-result-card';
-
-        const title = document.createElement('div');
-        title.className = 'group-card-title';
-        title.innerHTML = `<span>${teamIcons[gIdx] || '👥'}</span> <span>${teamNames[gIdx] || `${gIdx+1}조`}</span>`;
-        card.appendChild(title);
-
-        const list = document.createElement('div');
-        list.className = 'group-members-list';
-
-        group.forEach(m => {
-          const item = document.createElement('div');
-          item.className = 'group-member-item';
-          const dName = getUserDisplayName(m);
-          item.innerHTML = `
-            <img class="group-member-avatar" src="${m.avatar}" alt="Avatar">
-            <span>${dName}</span>
-          `;
-          list.appendChild(item);
-        });
-
-        card.appendChild(list);
-        groupRankingView.appendChild(card);
-      });
-
-      commentaryText.textContent = `[중계] 🎉 무작위 조 조성이 완료되었습니다!`;
-    }
-  }
-
-  rankingConfirmBtn.addEventListener('click', async () => {
-    raceCommentary.classList.add('hidden');
-
-    if (selectedGameMode === 'podium') {
-      const promises = [];
-      selectedWinnersList.forEach(uid => {
-        for (let f of currentFeedbacksData) {
-          const matchUser = f.users.find(u => u.id === uid && !u.done);
-          if (matchUser) {
-            promises.push(
-              toggleUserFeedbackState(f.messageLink, f.emoji, uid, true)
-            );
-            break;
-          }
-        }
-      });
-      await Promise.all(promises);
-    }
-
-    // 사이트 종료 (탭 닫기 시도 → 실패 시 빈 화면)
-    window.close();
-    document.documentElement.innerHTML = '';
-    try { location.replace('about:blank'); } catch (e) { /* ignore */ }
-  });
-
-  rankingRetryBtn.addEventListener('click', () => {
-    raceCommentary.classList.add('hidden');
-    goToSlide(2);
-    resetMeadowToPatrol();
-  });
-
-  function resetMeadowToPatrol() {
-    isRacing = false;
-    cancelAnimationFrame(raceAnimationFrameId);
-
-    cameraStage.style.transformOrigin = '50% 42%';
-    cameraStage.style.transform = 'translate(0px, 0px)';
-
-    let idx = 0;
-    spawnedCharacters.forEach((state, uid) => {
-      state.element.classList.remove('racing', 'focused', 'dead', 'race-leader');
-      state.element.style.opacity = '1';
-      state.bodyElement.style.transform = 'none';
-      state.element.style.zIndex = '125';
-      arrangeAtStartLine(uid, idx);
-      idx++;
-    });
-
-    loadFeedbacks(false);
-  }
-
-  /* ====================================================
-     6. 🍀 캐릭터 스폰 앤 싱크
-     ==================================================== */
-
-  function syncMeadowCharacters(pendingUsers) {
-    const pendingIds = new Set(pendingUsers.map(u => u.id));
-    
-    for (let [uid, charState] of spawnedCharacters.entries()) {
-      if (!pendingIds.has(uid)) {
-        clearTimeout(charState.walkTimeout);
-        clearInterval(charState.struggleInterval);
-        
-        const el = charState.element;
-        el.classList.remove('spawn', 'waddling-walk', 'focused');
-        el.classList.add('fade-out');
-        
-        spawnedCharacters.delete(uid);
-        
-        setTimeout(() => {
-          el.remove();
-        }, 700);
-      }
-    }
-
-    pendingUsers.forEach((u, idx) => {
-      if (!spawnedCharacters.has(u.id)) {
-        spawnowCharacter(u, idx);
-      }
-    });
-  }
-
-  const spawnowCharacter = spawnMeadowCharacter;
-
-  function startPatrol(userId) {
-    const charState = spawnedCharacters.get(userId);
-    if (!charState || charState.isDragging || charState.element.classList.contains('focused') || isRacing) return;
-
-    const idx = Array.from(spawnedCharacters.keys()).indexOf(userId);
-    arrangeAtStartLine(userId, idx);
-  }
-
-  function bindDragAndDrop(userId) {
-    const charState = spawnedCharacters.get(userId);
-    if (!charState) return;
-
-    const el = charState.element;
-    let startMouseX = 0, startMouseY = 0;
-    let startCharLeft = 0, startCharBottom = 0;
-
-    el.addEventListener('mousedown', (e) => {
-      if (isRacing) return;
-
-      if (el.classList.contains('focused')) {
-        el.classList.remove('focused');
-      }
-
-      charState.isDragging = true;
-      
-      clearTimeout(charState.walkTimeout);
-      el.classList.remove('waddling-walk');
-
-      el.classList.add('dragging', 'wiggling');
-
-      let toggle = false;
-      charState.bodyElement.style.backgroundImage = `url(${transparentImages.struggle1})`;
-      
-      charState.struggleInterval = setInterval(() => {
-        toggle = !toggle;
-        charState.bodyElement.style.backgroundImage = `url(${
-          toggle ? transparentImages.struggle2 : transparentImages.struggle1
-        })`;
-      }, 150);
-
-      startMouseX = e.clientX;
-      startMouseY = e.clientY;
-
-      startCharLeft = parseFloat(el.style.left) || 0;
-      startCharBottom = parseFloat(el.style.bottom) || 0;
-
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-
-      e.preventDefault();
-    });
-
-    function onMouseMove(e) {
-      if (!charState.isDragging) return;
-
-      const deltaX = e.clientX - startMouseX;
-      const deltaY = startMouseY - e.clientY;
-
-      let newLeft = startCharLeft + deltaX;
-      let newBottom = startCharBottom + deltaY;
-
-      if (newLeft < -100) newLeft = -100;
-      if (newLeft > 2460) newLeft = 2460;
-      
-      if (newBottom < -100) newBottom = -100;
-      if (newBottom > 660) newBottom = 660;
-
-      el.style.left = `${newLeft}px`;
-      el.style.bottom = `${newBottom}px`;
-
-      charState.x = newLeft;
-      charState.y = newBottom;
-    }
-
-    function onMouseUp() {
-      if (!charState.isDragging) return;
-      charState.isDragging = false;
-
-      el.classList.remove('dragging', 'wiggling');
-      clearInterval(charState.struggleInterval);
-
-      charState.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
-
-      const idx = Array.from(spawnedCharacters.keys()).indexOf(userId);
-      arrangeAtStartLine(userId, idx);
-
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    }
-  }
 });

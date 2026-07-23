@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Slack Meadow (2D Platformer Arena)</title>
-  <!-- Google Fonts: Inter & Outfit -->
+  <title>Slack Meadow (Chzzk Pick Machine & Emoji Analyzer)</title>
+  <!-- Google Fonts: Inter & Outfit & Black Han Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Vercel Analytics & Speed Insights -->
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
   <!-- 📱 데스크톱 화면 중앙에 띄울 모바일 기기 목업 래퍼 -->
@@ -17,93 +20,118 @@
       <!-- 스마트폰 수화기/카메라 스피커 데코 -->
       <div class="phone-speaker"></div>
 
-      <!-- 🍀 메인 서비스 화면 -->
-      <div id="main-screen" class="screen-container">
-        
-        <!-- 모바일 화면 전체를 뒤덮는 화이트 맵 초원 -->
-        <div class="meadow-canvas-full" id="meadow-canvas">
-          
-          <!-- 🌲 시차(Parallax) 스크롤용 배경 나무 레이어 -->
-          <div class="parallax-trees-container" id="parallax-trees">
-            <div class="parallax-tree tree-1">🌲</div>
-            <div class="parallax-tree tree-2">🌳</div>
-            <div class="parallax-tree tree-3">🌲</div>
-            <div class="parallax-tree tree-4">🌳</div>
-            <div class="parallax-tree tree-5">🌲</div>
-            <div class="parallax-tree tree-6">🌳</div>
-            <div class="parallax-tree tree-7">🌲</div>
-            <div class="parallax-tree tree-8">🌳</div>
+      <!-- 🔐 1단계: 로그인 화면 -->
+      <div id="login-screen" class="screen-container">
+        <div class="login-card">
+          <header class="login-header">
+            <span class="login-logo">🎰</span>
+            <h2>Slack Pick Studio</h2>
+            <p>슬랙 이모지 반응자를 불러와 치지직 추첨기 시작!</p>
+          </header>
+          <form id="login-form">
+            <div class="form-group">
+              <label for="login-token">Slack User Token</label>
+              <input 
+                type="password" 
+                id="login-token" 
+                placeholder="xoxp-, xoxs- 또는 xoxc- 토큰 입력" 
+                required
+              >
+            </div>
+            <div class="form-group hidden" id="login-cookie-group">
+              <label for="login-cookie">Slack d Cookie (xoxc 토큰 전용)</label>
+              <input 
+                type="password" 
+                id="login-cookie" 
+                placeholder="xoxd- 로 시작하는 슬랙 d 쿠키 입력"
+              >
+            </div>
+            <button type="submit" id="login-submit-btn" class="btn-primary">
+              <span class="btn-text">슬랙 연결하기</span>
+              <div class="spinner hidden"></div>
+            </button>
+          </form>
+          <div id="login-status" class="status-container hidden">
+            <div id="login-status-message" class="status-message"></div>
           </div>
+        </div>
+      </div>
 
-          <!-- 🎥 시네마틱 가로 추적 LERP 패닝 & Dynamic Zoom 적용 카메라 스테이지 -->
-          <div id="camera-stage" class="camera-stage-wrapper">
+      <!-- 🍀 메인 서비스 화면 -->
+      <div id="main-screen" class="screen-container hidden">
+        
+        <!-- 🎰 상단 비주얼 영역: 치지직 추첨기 / 조짜기 네온 릴 스튜디오 -->
+        <div class="picker-canvas-full" id="picker-canvas">
+          
+          <!-- 💫 추첨기 배경 네온 조명 애니메이션 -->
+          <div class="studio-bg-glow"></div>
+
+          <!-- 🎰 1. 룰렛/슬롯머신 추첨기 릴 뷰포트 -->
+          <div id="slot-machine-stage" class="slot-machine-stage">
+            <div class="slot-header-tag">CHZZK LUCKY ROLL</div>
             
-            <!-- 🏟️ 2D 수평 횡스크롤 트랙 경기장 (캐릭터와 동일 좌표계) -->
-            <div class="stadium-stage-2d">
-              <div class="stadium-plate-2d">
-                <!-- 가로 직선 레인 라인 4줄 -->
-                <div class="straight-lane-line line-1"></div>
-                <div class="straight-lane-line line-2"></div>
-                <div class="straight-lane-line line-3"></div>
-                <div class="straight-lane-line line-4"></div>
-                
-                <!-- 출발선 세로 라인 -->
-                <div class="start-line-straight-2d"></div>
-                <!-- 결승선 세로 라인 (2500px 지점) -->
-                <div class="finish-line-straight-2d"></div>
-
-                <!-- 결승선 2D 피니시 아치 (2500px 지점) -->
-                <div class="finish-gate-2d">
-                  <div class="gate-bar">FINISH</div>
+            <div class="slot-reel-window">
+              <!-- 중앙 골든 당첨 프레임 🎯 -->
+              <div class="golden-target-frame">
+                <span class="target-pointer left">▶</span>
+                <span class="target-pointer right">◀</span>
+              </div>
+              
+              <!-- 틱틱틱 롤러 카드 콘테이너 -->
+              <div id="slot-reel-container" class="slot-reel-container">
+                <div class="slot-card-item empty-card">
+                  <span class="card-icon">🎰</span>
+                  <span class="card-name">참가자를 소환해주세요!</span>
                 </div>
               </div>
-
-              <!-- 졸라맨 캐릭터 — 경기장과 같은 3200px 좌표계 -->
-              <div id="character-container" class="character-container-full"></div>
             </div>
           </div>
 
-          <!-- 🎙️ 실시간 경기 중계 오버레이 자막 바 + ⏩ 바로 결과보기 스킵 버튼 -->
+          <!-- 🎴 2. 조짜기 카드 디스펜서 스테이지 (조짜기 모드 시 전환) -->
+          <div id="group-dealer-stage" class="group-dealer-stage hidden">
+            <div class="dealer-header-tag">TEAM DEALER</div>
+            <div id="group-boxes-grid" class="group-boxes-grid">
+              <!-- 조별 카드 상자 동적 주입 -->
+            </div>
+          </div>
+
+          <!-- 🎙️ 추첨 상태 자막 바 + ⏩ 바로 결과보기 스킵 버튼 -->
           <div id="race-commentary" class="race-commentary-bar hidden">
             <div class="commentary-content-row">
-              <span class="commentary-icon">🎙️</span>
-              <span id="commentary-text" class="commentary-text">준비 완료...</span>
+              <span class="commentary-icon">🎰</span>
+              <span id="commentary-text" class="commentary-text">추첨 준비 완료!</span>
             </div>
             <button id="btn-skip-race" class="btn-skip-race">⏩ 바로 결과보기</button>
           </div>
 
-          <!-- 3D 카운트다운 오버레이 -->
+          <!-- 3D 카운트다운 / 팡파레 오버레이 -->
           <div id="race-countdown" class="race-countdown-overlay hidden">
             <span class="countdown-num">3</span>
           </div>
 
         </div>
 
-        <!-- 🎛️ 스마트폰 하단 35%에 걸쳐 항상 노출되는 슬라이딩 바텀 시트 -->
+        <!-- 🎛️ 하단 슬라이딩 바텀 시트 -->
         <div class="bottom-sheet" id="bottom-sheet">
-          <!-- 쓸어 올리기 / 클릭용 핸들바 -->
           <div class="bottom-sheet-handle" id="bottom-sheet-handle">
             <div class="handle-bar"></div>
           </div>
 
-          <!-- 본문 위젯 영역 -->
           <div class="panel-body">
             
-            <!-- 🎥 가로 3단 슬라이더 구조 스테이지 -->
             <div class="slider-container" id="slider-container">
               <div class="slider-wrapper" id="slider-wrapper">
                 
                 <!-- 슬라이드 패널 1: 슬랙메시지 분석 및 소환 제어 -->
                 <div class="slide-panel" id="slide-1">
-                  <!-- 헤더 -->
                   <header class="panel-header">
                     <div class="logo-row">
                       <div class="logo">
-                        <span class="emoji-logo">🌱</span>
-                        <h1>Slack Meadow</h1>
+                        <span class="emoji-logo">🎰</span>
+                        <h1>Slack Pick Studio</h1>
                       </div>
                     </div>
-                    <p class="panel-subtitle">이모지 반응자를 소환해 달리기를 시작해보세요.</p>
+                    <p class="panel-subtitle">이모지 반응자를 분석하고 룰렛 추첨기를 돌려보세요.</p>
                   </header>
 
                   <!-- 1. 분석 입력창 -->
@@ -128,7 +156,7 @@
                     </div>
                   </section>
 
-                  <!-- 2. 분석 결과 (이모지 및 반응자 리스트) -->
+                  <!-- 2. 분석 결과 (이모지 및 반응자 + 미반응자 리스트) -->
                   <section id="result-section" class="panel-card result-card hidden">
                     <div class="message-info">
                       <div class="user-profile">
@@ -138,35 +166,54 @@
                           <span id="message-time" class="timestamp">시간</span>
                         </div>
                       </div>
-                      <!-- 💬 v18: 숏코드 이모지 파싱 대응을 위해 innerHTML 처리 -->
                       <p id="message-text" class="message-content"></p>
                     </div>
 
-                    <div class="emoji-filters-container">
+                    <!-- 이모지 선택 vs 미반응자 탭 뷰 -->
+                    <div class="analysis-tab-menu">
+                      <button type="button" id="tab-btn-emojis" class="tab-btn active">😃 반응 이모지</button>
+                      <button type="button" id="tab-btn-unreacted" class="tab-btn">🚨 미반응자 (<span id="unreacted-count-badge">0</span>명)</button>
+                    </div>
+
+                    <!-- 탭 1: 이모지 필터 칩 영역 -->
+                    <div id="tab-content-emojis" class="tab-content">
                       <div class="emoji-filters-header">
                         <h4>이모지 선택</h4>
-                        <!-- 전체 선택 체크박스 -->
                         <label class="select-all-wrapper">
                           <input type="checkbox" id="select-all-emojis">
                           <span>전체 선택</span>
                         </label>
                       </div>
                       <div id="emoji-filter-chips" class="emoji-filter-chips"></div>
-                    </div>
 
-                    <div id="selected-emoji-detail" class="selected-emoji-detail hidden">
-                      <div class="emoji-detail-header">
-                        <span id="detail-emoji-badge" class="emoji-badge">👍</span>
-                        <span id="detail-emoji-count" class="count-label">0명</span>
-                        <button id="add-to-feedback-btn" class="btn-success">초원 소환</button>
+                      <div id="selected-emoji-detail" class="selected-emoji-detail hidden">
+                        <div class="emoji-detail-header">
+                          <span id="detail-emoji-badge" class="emoji-badge">👍</span>
+                          <span id="detail-emoji-count" class="count-label">0명</span>
+                          <button id="add-to-feedback-btn" class="btn-success">추첨기에 소환</button>
+                        </div>
+                        <div id="detail-user-list" class="detail-user-list"></div>
                       </div>
-                      <div id="detail-user-list" class="detail-user-list"></div>
                     </div>
 
-                    <!-- 📊 v17/18: 고유 참가자 유저별 명단 분석 패널 -->
+                    <!-- 탭 2: 미반응자(이모지 안 누른 사람) 영역 -->
+                    <div id="tab-content-unreacted" class="tab-content hidden">
+                      <div class="unreacted-header-row">
+                        <p class="unreacted-desc">해당 채널에 참여 중이나 반응을 달지 않은 유저입니다.</p>
+                        <div class="unreacted-actions">
+                          <button type="button" id="btn-copy-unreacted" class="btn-success-sm">📋 명단 복사</button>
+                          <button type="button" id="btn-summon-unreacted" class="btn-primary-sm">🎰 추첨기에 추가</button>
+                        </div>
+                      </div>
+                      <div id="unreacted-user-list" class="unreacted-user-list">
+                        <!-- 미반응 유저 동적 바인딩 -->
+                      </div>
+                    </div>
+
+                    <!-- 유저별 명단 분석 결과 -->
                     <div class="user-analysis-section">
                       <button type="button" id="btn-toggle-user-analysis" class="btn-secondary-outline">
-                        📊 명단 분석 결과 보기
+                        📊 유저별 이모지 현황
                       </button>
                       
                       <div id="user-analysis-panel" class="user-analysis-panel hidden">
@@ -176,57 +223,52 @@
                             📋 명단 복사 (스페이스 구분)
                           </button>
                         </div>
-                        <div id="analysis-user-list" class="analysis-user-list">
-                          <!-- 유저별 단 이모지 목록 동적 주입 -->
-                        </div>
+                        <div id="analysis-user-list" class="analysis-user-list"></div>
                       </div>
                     </div>
 
                   </section>
                 </div>
 
-                <!-- 슬라이드 패널 2: 경기 모드 설정 및 명단 제어 -->
+                <!-- 슬라이드 패널 2: 추첨/조짜기 모드 설정 및 명단 관리 -->
                 <div class="slide-panel" id="slide-2">
-                  <!-- 슬라이드 2 네비게이션 헤더 -->
                   <header class="slide-header-nav">
                     <button id="btn-prev-slide" class="btn-prev-slide">⬅️ 추가 소환하기</button>
                   </header>
 
-                  <!-- 3. 피드백 목록 (경주 명단 및 경주 제어) -->
                   <section class="panel-card feedback-card">
                     <div class="feedback-card-header">
-                      <h3>경주 명단</h3>
+                      <h3>추첨 명단</h3>
                       <div class="header-actions">
                         <button id="select-all-runners-btn" class="btn-action-xs">전체선택</button>
                         <button id="delete-all-runners-btn" class="btn-action-xs btn-danger-xs">전체삭제</button>
-                        <!-- 🏁 경주 시작 버튼 -->
-                        <button id="start-race-btn" class="btn-race hidden">🏁 경주 시작!</button>
+                        <button id="start-race-btn" class="btn-race hidden">🎰 추첨 시작!</button>
                       </div>
                     </div>
 
-                    <!-- 🎮 경기 모드 및 인원수 선택 패널 -->
+                    <!-- 추첨 모드 선택 (단판 추첨 vs 조 짜기) -->
                     <div class="game-mode-panel" id="game-mode-panel">
                       <div class="mode-tab-row">
                         <label class="mode-tab-label">
                           <input type="radio" name="game-mode" value="podium" checked>
-                          <span class="mode-tab-btn">🏆 선착순</span>
+                          <span class="mode-tab-btn">🎰 단판/다인원 추첨</span>
                         </label>
                         <label class="mode-tab-label">
                           <input type="radio" name="game-mode" value="group">
-                          <span class="mode-tab-btn">👥 조 짜기</span>
+                          <span class="mode-tab-btn">🎴 조 짜기 (팀 나누기)</span>
                         </label>
                       </div>
                       
                       <div class="mode-config-row">
-                        <!-- 선착순 설정창 -->
+                        <!-- 추첨 수량 설정 -->
                         <div class="config-item" id="config-podium">
                           <span class="config-label">당첨 인원 수</span>
-                          <input type="number" id="winner-count-input" min="1" max="10" value="1">
+                          <input type="number" id="winner-count-input" min="1" max="20" value="1">
                         </div>
-                        <!-- 조 짜기 설정창 -->
+                        <!-- 조 짜기 설정 -->
                         <div class="config-item hidden" id="config-group">
                           <span class="config-label">나눌 조 개수</span>
-                          <input type="number" id="team-count-input" min="2" max="4" value="2">
+                          <input type="number" id="team-count-input" min="2" max="6" value="2">
                         </div>
                       </div>
                     </div>
@@ -237,26 +279,30 @@
                   </section>
                 </div>
 
-                <!-- 👑 슬라이드 패널 3: 최종 랭킹 결과창 -->
+                <!-- 👑 슬라이드 패널 3: 최종 추첨/조짜기 결과창 -->
                 <div class="slide-panel" id="slide-3">
                   <header class="slide-header-nav">
-                    <h3 class="result-nav-title">👑 최종 경기 결과</h3>
+                    <h3 class="result-nav-title">🎉 최종 추첨 결과</h3>
                   </header>
 
                   <section class="panel-card result-ranking-card">
-                    <!-- 🏆 선착순 랭킹 리스트 뷰포트 -->
+                    <!-- 🏆 단판/다인원 당첨자 뷰 -->
                     <div id="ranking-list-view" class="ranking-list-view">
                       <!-- JS 동적 마크업 바인딩 -->
                     </div>
 
-                    <!-- 👥 조 짜기 분할 결과 뷰포트 -->
+                    <!-- 👥 조 짜기 결과 뷰 -->
                     <div id="group-ranking-view" class="group-result-view hidden">
                       <!-- JS 동적 마크업 바인딩 -->
                     </div>
 
                     <div class="result-action-row">
-                      <button id="ranking-confirm-btn" class="btn-primary">확정 및 결과 닫기</button>
-                      <button id="ranking-retry-btn" class="btn-retry" type="button">다시하기</button>
+                      <button id="ranking-confirm-btn" class="btn-primary" type="button">
+                        <span class="btn-text">확정 및 닫기</span>
+                      </button>
+                      <button id="ranking-retry-btn" class="btn-primary btn-primary-outline" type="button">
+                        <span class="btn-text">다시 추첨하기</span>
+                      </button>
                     </div>
                   </section>
                 </div>
