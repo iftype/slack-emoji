@@ -363,20 +363,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 🚨 남아있는 순수 미당첨 유저(runners)로만 룰렛 카드 릴을 즉시 깨끗하게 갱신!
+  // 🚨 남아있는 순수 미당첨 유저(runners)로만 룰렛 카드 릴을 무작위 셔플하여 갱신!
   function renderRoulettePreview(runners) {
     rouletteReelContainer.innerHTML = '';
     if (!runners || runners.length === 0) {
       rouletteReelContainer.innerHTML = `
         <div class="picker-card-2d empty-card">
           <span class="card-avatar-text">🌱</span>
-          <span class="card-name">추첨이 완료되었습니다!</span>
+          <span class="card-name">명단을 소환해보세요!</span>
         </div>
       `;
       return;
     }
 
-    runners.forEach(u => {
+    // 🎲 무작위 셔플하여 특정 유저 고정 1번 노출 원천 차단!
+    const shuffledRunners = [...runners].sort(() => Math.random() - 0.5);
+
+    shuffledRunners.forEach(u => {
       const card = document.createElement('div');
       card.className = 'picker-card-2d';
       card.innerHTML = `

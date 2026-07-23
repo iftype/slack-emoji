@@ -14,14 +14,17 @@ const LotteryEngine = {
     raceCommentary.classList.remove('hidden');
     commentaryText.textContent = '🎰 룰렛 돌리는 중... 틱틱틱!';
 
-    // 무작위 1명 당첨자 선정
+    // 무작위 1명 당첨자 선정 및 릴 무작위 셔플
     const winnerIndex = Math.floor(Math.random() * runners.length);
     const winner = runners[winnerIndex];
+
+    // 🎲 릴 카드 순서를 100% 무작위 셔플!
+    const shuffledReelRunners = [...runners].sort(() => Math.random() - 0.5);
 
     // 슬롯 릴 카드 바인딩
     let reelCardsHtml = '';
     for (let i = 0; i < 6; i++) {
-      runners.forEach(u => {
+      shuffledReelRunners.forEach(u => {
         reelCardsHtml += `
           <div class="picker-card-2d">
             <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
