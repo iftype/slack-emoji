@@ -1372,7 +1372,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      // 💥 낙오
+      // 💥 낙오 — 즉시 화면에서 제거 (시체는 안 보여줌)
+      const justEliminated = [];
       spawnedCharacters.forEach((state, uid) => {
         if (state.isDead || state.isFinished) return;
         if (selectedGameMode !== 'podium') return;
@@ -1380,16 +1381,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (state.x < state.fallX) return;
 
         state.isDead = true;
-        state.element.classList.remove('racing', 'race-leader');
-        state.element.classList.add('dead');
         eliminatedQueue.push(uid);
+        justEliminated.push(uid);
         const charName = state.element.querySelector('.char-name-bubble').textContent;
         commentaryText.textContent = `[중계] 💥 앗! ${charName} 선수, 돌부리에 발이 걸려 넘어졌습니다!`;
         sfx.playSplat();
       });
+      justEliminated.forEach(uid => {
+        const state = spawnedCharacters.get(uid);
+        if (!state) return;
+        state.element.remove();
+        spawnedCharacters.delete(uid);
+      });
 
-      // 이동 + 화면 이탈 방지(1등 대비 과도한 뒤처짐 러버밴드)
-      const MAX_LAG = 220; // 1등보다 이만큼 이상 뒤처지면 살짝 끌어줌 → 목업 안 유지
+      // 이동 — 카메라에는 1등만 보이게 (나머지 생존자도 숨김)
       spawnedCharacters.forEach((state, uid) => {
         if (state.isDead) return;
 
@@ -1405,16 +1410,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
           state.element.style.left = `${state.x - 30}px`;
           state.element.style.bottom = `${state.y}px`;
+          state.element.style.opacity = uid === leaderUid ? '1' : '0';
           return;
         }
 
         const jitter = Math.sin(frameIndex * 0.11 * state.speedJitter + state.randomSeed) * (18 + state.speedJitter * 22);
         state.x += (state.speed + jitter) * dt;
-
-        // 1등 카메라 프레임 안에 무리 유지
-        if (uid !== leaderUid && state.x < leadX - MAX_LAG) {
-          state.x += (leadX - MAX_LAG - state.x) * 0.12;
-        }
 
         state.y = Math.max(8, Math.min(125, state.y));
         state.bodyElement.classList.remove('facing-left');
@@ -1424,38 +1425,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.element.style.bottom = `${state.y}px`;
         state.bodyElement.style.transform = `scale(${scale})`;
         state.element.style.zIndex = String(20 + Math.round(state.y));
+        // 1등만 표시
+        state.element.style.opacity = uid === leaderUid ? '1' : '0';
+        state.element.classList.toggle('race-leader', uid === leaderUid);
       });
 
-      // 🎥 1등 하드 락 — 매 프레임 화면 정중앙에 즉시 고정 (lerp 없음)
-      spawnedCharacters.forEach((st, uid) => {
-        st.element.classList.toggle('race-leader', uid === leaderUid && !st.isDead);
-      });
-
-      // 캐릭터 left = x-30, width 60 → 시각 중심 = x
-      // 목업 가로 중앙(~195px)에 1등 중심을 Exact snap
+      // 🎥 1등만 화면 정중앙 하드 락
       const mockupW = document.querySelector('.mobile-mockup')?.clientWidth || 390;
       const viewCenter = mockupW / 2;
       camX = viewCenter - leadX;
       currentZoom = 1;
 
-      // origin을 1등 위치에 두면 향후 줌해도 1등이 안 밀림
       cameraStage.style.transformOrigin = `${leadX}px 42%`;
       cameraStage.style.transform = `translateX(${camX}px)`;
 
       parallaxTrees.forEach((tree, tIdx) => {
         tree.style.transform = `translateX(${tIdx * 105 + camX * 0.35}px)`;
-      });
-
-      // 목업 밖(좌측)으로 완전히 나간 낙오자만 제거
-      const mockupEl = document.querySelector('.mobile-mockup');
-      const mockupRect = mockupEl.getBoundingClientRect();
-      spawnedCharacters.forEach((state, uid) => {
-        if (!state.isDead) return;
-        const charRect = state.element.getBoundingClientRect();
-        if (charRect.right < mockupRect.left - 20) {
-          state.element.remove();
-          spawnedCharacters.delete(uid);
-        }
       });
 
       raceAnimationFrameId = requestAnimationFrame(updateRaceFrame);
@@ -1488,6 +1473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (charState) {
           charState.element.classList.remove('racing');
           charState.element.classList.add('focused');
+          charState.element.style.opacity = '1';
           charState.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
           charState.bodyElement.style.transform = 'scale(1.18)';
           charState.element.style.left = '2490px'; // 2500 지점 안착
@@ -1541,6 +1527,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       spawnedCharacters.forEach(state => {
         state.element.classList.remove('racing');
         state.element.classList.add('focused');
+        state.element.style.opacity = '1';
         state.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
         state.element.style.left = '2490px';
         state.element.style.zIndex = '125';
@@ -1616,6 +1603,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let idx = 0;
     spawnedCharacters.forEach((state, uid) => {
       state.element.classList.remove('racing', 'focused', 'dead', 'race-leader');
+      state.element.style.opacity = '1';
       state.bodyElement.style.transform = 'none';
       state.element.style.zIndex = '125';
       arrangeAtStartLine(uid, idx);
