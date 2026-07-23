@@ -313,7 +313,7 @@ function App() {
   const activeRunners = getUniqueActiveRunners();
 
   return (
-    <div className="meadow-canvas">
+    <div className="meadow-canvas-full">
       {/* Top 2D Stage Viewport */}
       <div className="viewport-header">
         <h2>🎰 Slack Pick Studio</h2>

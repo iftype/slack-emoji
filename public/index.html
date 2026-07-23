@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Slack Pick Studio - 슬랙 무작위 룰렛 추첨기</title>
   
+  <!-- 강한 캐시 방지 메타 태그 (모바일 및 디스크 캐시 완전 차단) -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
   <!-- SEO & Open Graph -->
   <meta name="description" content="슬랙 메시지의 이모지 반응자를 한눈에 분석하고, 2D 무작위 롤러 추첨기로 공정하게 당첨자를 뽑거나 팀을 나누는 프레시한 웹 서비스입니다.">
   <meta property="og:title" content="Slack Pick Studio - 슬랙 무작위 룰렛 추첨기">
@@ -16,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2.5.0">
 
   <!-- React 18 & Babel Standalone CDN for instant Production deployment -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -27,7 +32,7 @@
   <!-- React Mount Point -->
   <div id="root"></div>
 
-  <!-- React Application Component Script -->
-  <script type="text/babel" src="react-app.jsx"></script>
+  <!-- React Application Component Script (Cache-busted) -->
+  <script type="text/babel" src="react-app.jsx?v=2.5.0"></script>
 </body>
 </html>
