@@ -1426,22 +1426,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.element.style.zIndex = String(20 + Math.round(state.y));
       });
 
-      // 🎥 1등 전용 카메라 워킹 — 화면 중앙에 하드 락
+      // 🎥 1등 하드 락 — 매 프레임 화면 정중앙에 즉시 고정 (lerp 없음)
       spawnedCharacters.forEach((st, uid) => {
         st.element.classList.toggle('race-leader', uid === leaderUid && !st.isDead);
       });
 
-      const viewFocus = 195; // 목업 가로 중앙
-      const targetCamX = viewFocus - leadX;
-      // 거의 즉시 따라감 (시네마틱 락온)
-      camX += (targetCamX - camX) * 0.45;
+      // 캐릭터 left = x-30, width 60 → 시각 중심 = x
+      // 목업 가로 중앙(~195px)에 1등 중심을 Exact snap
+      const mockupW = document.querySelector('.mobile-mockup')?.clientWidth || 390;
+      const viewCenter = mockupW / 2;
+      camX = viewCenter - leadX;
+      currentZoom = 1;
 
-      const progress = Math.min(1, leadX / FINISH_X);
-      // 줌은 약하게 — 목업 밖 이탈 방지
-      const targetZoom = 1.0 + progress * 0.08;
-      currentZoom += (targetZoom - currentZoom) * 0.1;
-
-      cameraStage.style.transform = `translate(${camX}px, 0px) scale(${currentZoom})`;
+      // origin을 1등 위치에 두면 향후 줌해도 1등이 안 밀림
+      cameraStage.style.transformOrigin = `${leadX}px 42%`;
+      cameraStage.style.transform = `translateX(${camX}px)`;
 
       parallaxTrees.forEach((tree, tIdx) => {
         tree.style.transform = `translateX(${tIdx * 105 + camX * 0.35}px)`;
