@@ -284,6 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const rankingListView = document.getElementById('ranking-list-view');
   const groupRankingView = document.getElementById('group-ranking-view');
   const rankingConfirmBtn = document.getElementById('ranking-confirm-btn');
+  const rankingRetryBtn = document.getElementById('ranking-retry-btn');
 
   // 🔲 이모지 결과 전체 선택
   const selectAllEmojis = document.getElementById('select-all-emojis');
@@ -331,6 +332,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 🎮 경기 모드 속성 ('podium' | 'group')
   let selectedGameMode = 'podium'; 
   let selectedWinnersList = [];
+  let podiumWinnerCount = 1;
   let generatedGroupsList = [];
 
   // 💀 탈락 순위 큐
@@ -1030,9 +1032,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       speed: 0.007,
       randomSeed: Math.random() * 10,
       
-      // v20: 350px ~ 2350px 무작위 넘어짐 좌표 사전 배정 (낙오자용)
-      fallX: 350 + Math.random() * 2000,
-      
+      // v20: 넘어짐 없이 속도 승부
       isDead: false,
       isFinished: false 
     };
@@ -1190,9 +1190,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentZoom = 1.1;
 
     if (selectedGameMode === 'podium') {
-      const N = Math.min(parseInt(winnerCountInput.value) || 1, activeRunners.length - 1);
-      const shuffled = [...activeRunners].sort(() => Math.random() - 0.5);
-      selectedWinnersList = shuffled.slice(0, N);
+      podiumWinnerCount = Math.min(parseInt(winnerCountInput.value) || 1, activeRunners.length - 1);
+      selectedWinnersList = []; // 골인 순위로 확정
       generatedGroupsList = [];
     } else {
       const M = parseInt(teamCountInput.value) || 2;
@@ -1240,8 +1239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     numEl.textContent = count;
     
     if (selectedGameMode === 'podium') {
-      const N = Math.min(parseInt(winnerCountInput.value) || 1, activeRunners.length - 1);
-      commentaryText.textContent = `[중계] 🏆 선착순 모드! 최후의 ${N}명이 피드백 당첨자가 됩니다!`;
+      commentaryText.textContent = `[중계] 🏆 선착순 모드! 속도 경쟁으로 상위 ${podiumWinnerCount}명이 당첨됩니다!`;
     } else {
       const M = parseInt(teamCountInput.value) || 2;
       commentaryText.textContent = `[중계] 👥 조 짜기 모드! 총 ${M}개조로 나뉘어 단체전 우호 질주가 펼쳐집니다!`;
@@ -1277,11 +1275,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const FINISH_X = 2500;
     const RACE_LIMIT_MS = 15000;
-    // 거리 ~2450px → 초당 360~520px면 약 5~7초에 선두 골인
     const raceStartTime = performance.now();
     let lastFrameTime = raceStartTime;
 
-    // 사람마다 확연히 다른 고유 속도 (셔플 랭크)
+    // 사람마다 뚜렷한 고유 속도 (겹치지 않게 랭크 배정)
+    // 거리 ~2450px → 420~560 px/s면 약 4.4~5.8초에 선두 골인
     const runners = Array.from(spawnedCharacters.keys());
     const speedRanks = runners
       .map((_, i) => i)
@@ -1289,26 +1287,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     runners.forEach((uid, i) => {
       const state = spawnedCharacters.get(uid);
-      const rank = speedRanks[i]; // 0 = 느림 … n-1 = 빠름
+      const rank = speedRanks[i];
       const t = runners.length <= 1 ? 1 : rank / (runners.length - 1);
-      // 기본 340~500 px/s + 개인 노이즈
-      let base = 340 + t * 160 + Math.random() * 35;
-
-      // 선착순 당첨 후보에게 소폭 가속 (그래도 순위 경쟁은 유지)
-      if (selectedGameMode === 'podium' && selectedWinnersList.includes(uid)) {
-        base += 40 + Math.random() * 30;
-      }
-
-      state.speed = base;
-      state.speedJitter = 0.55 + Math.random() * 0.9; // 개인별 출렁임 주기/폭
-      state.fallX = 500 + Math.random() * 1600;
-      // Y 재클램프 — 목업 밖으로 안 나가게
+      // 최소 간격이 생기도록 선형 스프레드 + 소량 노이즈
+      state.speed = 420 + t * 140 + (Math.random() - 0.5) * 18;
+      state.speedJitter = 0.35 + Math.random() * 0.4; // 약하게만 출렁
       state.y = Math.max(8, Math.min(125, state.y));
+      state.element.style.opacity = '0';
     });
 
     camX = 0;
     camY = 0;
     currentZoom = 1.0;
+    cameraStage.style.transformOrigin = '50% 42%';
 
     let frameIndex = 0;
     let lastCommentTime = 0;
@@ -1329,75 +1320,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      let activeRunnersCount = 0;
+      let unfinishedCount = 0;
       spawnedCharacters.forEach((st) => {
-        if (!st.isDead && !st.isFinished) activeRunnersCount++;
+        if (!st.isFinished) unfinishedCount++;
       });
 
-      if (activeRunnersCount === 0) {
+      if (unfinishedCount === 0) {
         isRacing = false;
         cancelAnimationFrame(raceAnimationFrameId);
         finishRace();
         return;
       }
 
-      const aliveRunners = [];
+      const allRunners = [];
       spawnedCharacters.forEach((st, uid) => {
-        if (!st.isDead) aliveRunners.push({ id: uid, state: st });
+        allRunners.push({ id: uid, state: st });
       });
 
-      // 현재 1등
-      let leader = aliveRunners[0];
-      aliveRunners.forEach(r => {
+      // 현재 1등 (가장 앞)
+      let leader = allRunners[0];
+      allRunners.forEach(r => {
         if (r.state.x > leader.state.x) leader = r;
       });
       leaderUid = leader.id;
       const leadX = leader.state.x;
 
-      if (frameIndex - lastCommentTime >= 50) {
+      if (frameIndex - lastCommentTime >= 55) {
         lastCommentTime = frameIndex;
-        if (aliveRunners.length > 1) {
-          const opts = selectedGameMode === 'podium'
-            ? [
-                `[중계] 🏆 남은 생존 주자 ${aliveRunners.length}명!`,
-                `[중계] 카메라가 1등을 바짝 추적합니다!`,
-                `[중계] 피니시 아치를 향해 전력 질주!`
-              ]
-            : [
-                `[중계] 👥 선두를 카메라가 따라갑니다!`,
-                `[중계] 조별 대형으로 질주 중!`,
-                `[중계] 단체 골인을 향한 힘찬 전진!`
-              ];
-          commentaryText.textContent = opts[Math.floor(Math.random() * opts.length)];
-        }
+        const opts = selectedGameMode === 'podium'
+          ? [
+              `[중계] 🏆 속도 경쟁 중! 1등을 카메라가 추적합니다!`,
+              `[중계] 선두가 치고 나갑니다!`,
+              `[중계] 피니시 아치를 향해 전력 질주!`
+            ]
+          : [
+              `[중계] 👥 선두를 카메라가 따라갑니다!`,
+              `[중계] 조별 대형으로 질주 중!`,
+              `[중계] 단체 골인을 향한 힘찬 전진!`
+            ];
+        commentaryText.textContent = opts[Math.floor(Math.random() * opts.length)];
       }
 
-      // 💥 낙오 — 즉시 화면에서 제거 (시체는 안 보여줌)
-      const justEliminated = [];
+      // 이동 — 넘어짐 없음, 카메라에는 1등만 표시
       spawnedCharacters.forEach((state, uid) => {
-        if (state.isDead || state.isFinished) return;
-        if (selectedGameMode !== 'podium') return;
-        if (selectedWinnersList.includes(uid)) return;
-        if (state.x < state.fallX) return;
-
-        state.isDead = true;
-        eliminatedQueue.push(uid);
-        justEliminated.push(uid);
-        const charName = state.element.querySelector('.char-name-bubble').textContent;
-        commentaryText.textContent = `[중계] 💥 앗! ${charName} 선수, 돌부리에 발이 걸려 넘어졌습니다!`;
-        sfx.playSplat();
-      });
-      justEliminated.forEach(uid => {
-        const state = spawnedCharacters.get(uid);
-        if (!state) return;
-        state.element.remove();
-        spawnedCharacters.delete(uid);
-      });
-
-      // 이동 — 카메라에는 1등만 보이게 (나머지 생존자도 숨김)
-      spawnedCharacters.forEach((state, uid) => {
-        if (state.isDead) return;
-
         if (state.x >= FINISH_X) {
           if (!state.isFinished) {
             state.isFinished = true;
@@ -1414,7 +1379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
 
-        const jitter = Math.sin(frameIndex * 0.11 * state.speedJitter + state.randomSeed) * (18 + state.speedJitter * 22);
+        const jitter = Math.sin(frameIndex * 0.09 * state.speedJitter + state.randomSeed) * 10;
         state.x += (state.speed + jitter) * dt;
 
         state.y = Math.max(8, Math.min(125, state.y));
@@ -1425,18 +1390,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.element.style.bottom = `${state.y}px`;
         state.bodyElement.style.transform = `scale(${scale})`;
         state.element.style.zIndex = String(20 + Math.round(state.y));
-        // 1등만 표시
         state.element.style.opacity = uid === leaderUid ? '1' : '0';
         state.element.classList.toggle('race-leader', uid === leaderUid);
       });
 
-      // 🎥 1등만 화면 정중앙 하드 락
+      // 🎥 1등 부드러운 추적 (프레임레이트 독립 지수 보간)
       const mockupW = document.querySelector('.mobile-mockup')?.clientWidth || 390;
       const viewCenter = mockupW / 2;
-      camX = viewCenter - leadX;
-      currentZoom = 1;
+      // 살짝 앞서 예측해 따라가는 느낌
+      const lookAhead = leader.state.speed * 0.08;
+      const targetCamX = viewCenter - (leadX + lookAhead);
+      const follow = 1 - Math.exp(-10 * dt);
+      camX += (targetCamX - camX) * follow;
 
-      cameraStage.style.transformOrigin = `${leadX}px 42%`;
       cameraStage.style.transform = `translateX(${camX}px)`;
 
       parallaxTrees.forEach((tree, tIdx) => {
@@ -1446,11 +1412,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       raceAnimationFrameId = requestAnimationFrame(updateRaceFrame);
     }
 
+    // 출발 직후 1등 위치로 카메라 스냅 후 부드럽게 추적
+    const firstLeader = runners
+      .map(uid => ({ uid, state: spawnedCharacters.get(uid) }))
+      .sort((a, b) => b.state.x - a.state.x)[0];
+    if (firstLeader) {
+      const mockupW = document.querySelector('.mobile-mockup')?.clientWidth || 390;
+      camX = mockupW / 2 - firstLeader.state.x;
+      cameraStage.style.transform = `translateX(${camX}px)`;
+    }
+
     raceAnimationFrameId = requestAnimationFrame(updateRaceFrame);
   }
 
   function finishRace() {
-    cameraStage.style.transform = 'translate(0px, 0px) scale(1)';
+    cameraStage.style.transformOrigin = '50% 42%';
+    cameraStage.style.transform = 'translate(0px, 0px)';
     sfx.playWoohoo();
 
     bottomSheet.classList.add('expanded');
@@ -1460,15 +1437,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       rankingListView.classList.remove('hidden');
       groupRankingView.classList.add('hidden');
 
-      const aliveRunners = [];
+      const ranked = [];
       spawnedCharacters.forEach((state, uid) => {
-        if (!state.isDead) {
-          aliveRunners.push({ uid, x: state.x });
-        }
+        ranked.push({ uid, x: state.x });
       });
-      aliveRunners.sort((a, b) => b.x - a.x);
+      ranked.sort((a, b) => b.x - a.x);
 
-      aliveRunners.forEach(r => {
+      // 골인 순위(속도)로 당첨자 확정
+      selectedWinnersList = ranked.slice(0, podiumWinnerCount).map(r => r.uid);
+
+      ranked.forEach(r => {
         const charState = spawnedCharacters.get(r.uid);
         if (charState) {
           charState.element.classList.remove('racing');
@@ -1476,22 +1454,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           charState.element.style.opacity = '1';
           charState.bodyElement.style.backgroundImage = `url(${transparentImages.walk})`;
           charState.bodyElement.style.transform = 'scale(1.18)';
-          charState.element.style.left = '2490px'; // 2500 지점 안착
+          charState.element.style.left = '2490px';
           charState.element.style.bottom = `${charState.y}px`;
           charState.element.style.zIndex = '125';
         }
       });
 
-      const sortedEliminated = [...eliminatedQueue].reverse();
-      const finalRankingList = [
-        ...aliveRunners.map(r => r.uid),
-        ...sortedEliminated
-      ];
-
       rankingListView.innerHTML = '';
       
-      finalRankingList.forEach((uid, index) => {
+      ranked.forEach((r, index) => {
         const rank = index + 1;
+        const uid = r.uid;
         
         let userObj = null;
         for (let f of currentFeedbacksData) {
@@ -1504,8 +1477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const uName = userObj ? getUserDisplayName(userObj) : uid;
         const uAvatar = userObj ? userObj.avatar : 'https://via.placeholder.com/32';
-
-        const isWinner = rank <= selectedWinnersList.length;
+        const isWinner = rank <= podiumWinnerCount;
 
         const item = document.createElement('div');
         item.className = `rank-item ${isWinner ? 'winner' : 'loser'}`;
@@ -1586,10 +1558,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
       });
-
       await Promise.all(promises);
     }
 
+    // 사이트 종료 (탭 닫기 시도 → 실패 시 빈 화면)
+    window.close();
+    document.documentElement.innerHTML = '';
+    try { location.replace('about:blank'); } catch (e) { /* ignore */ }
+  });
+
+  rankingRetryBtn.addEventListener('click', () => {
+    raceCommentary.classList.add('hidden');
     goToSlide(2);
     resetMeadowToPatrol();
   });
@@ -1598,7 +1577,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     isRacing = false;
     cancelAnimationFrame(raceAnimationFrameId);
 
-    cameraStage.style.transform = 'translate(0px, 0px) scale(1)';
+    cameraStage.style.transformOrigin = '50% 42%';
+    cameraStage.style.transform = 'translate(0px, 0px)';
 
     let idx = 0;
     spawnedCharacters.forEach((state, uid) => {
