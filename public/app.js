@@ -1276,22 +1276,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   function startStadiumRace() {
     isRacing = true;
 
-    // ⚡ 3200px 트랙용 속도 튜닝 (약 12~18초 완주)
-    spawnedCharacters.forEach((state) => {
-      state.speed = 2.45 + Math.random() * 1.1; 
-      state.fallX = 350 + Math.random() * 2050;
+    const FINISH_X = 2500;
+    const RACE_LIMIT_MS = 15000;
+    // 거리 ~2450px → 초당 200~260px면 약 9.5~12.5초에 선두 골인, 15초 하드캡
+    const raceStartTime = performance.now();
+    let lastFrameTime = raceStartTime;
+
+    spawnedCharacters.forEach((state, uid) => {
+      const isWinner = selectedGameMode === 'podium' && selectedWinnersList.includes(uid);
+      // px/sec — 1등 후보를 조금 더 빠르게
+      state.speed = isWinner
+        ? 230 + Math.random() * 40
+        : 195 + Math.random() * 45;
+      state.fallX = 400 + Math.random() * 1700;
     });
 
     camX = 0;
     camY = 0;
-    currentZoom = Math.max(0.55, 1.05 - (totalRunnersCount * 0.012));
+    currentZoom = 1.15;
 
     let frameIndex = 0;
     let lastCommentTime = 0;
+    let leaderUid = null;
 
-    function updateRaceFrame() {
+    function updateRaceFrame(now) {
       if (!isRacing) return;
       frameIndex++;
+
+      const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+      lastFrameTime = now;
+      const elapsed = now - raceStartTime;
+
+      // ⏱ 15초 하드캡
+      if (elapsed >= RACE_LIMIT_MS) {
+        isRacing = false;
+        cancelAnimationFrame(raceAnimationFrameId);
+        finishRace();
+        return;
+      }
 
       let activeRunnersCount = 0;
       spawnedCharacters.forEach((st) => {
@@ -1312,19 +1334,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!st.isDead) aliveRunners.push({ id: uid, state: st });
       });
 
-      if (frameIndex - lastCommentTime >= 65) {
+      if (frameIndex - lastCommentTime >= 55) {
         lastCommentTime = frameIndex;
         if (aliveRunners.length > 1) {
           let commentaryOptions = [];
           if (selectedGameMode === 'podium') {
             commentaryOptions = [
               `[중계] 🏆 긴급 질주! 남은 생존 주자는 ${aliveRunners.length}명입니다.`,
-              `[중계] 와글와글 출발해 선두 그룹이 튀어나오고 있습니다!`,
-              `[중계] 2500px 지점 아득한 피니시 아치를 향해 치닫습니다!`
+              `[중계] 1등 주자를 카메라가 바짝 쫓습니다!`,
+              `[중계] 피니시 아치를 향해 치닫습니다!`
             ];
           } else {
             commentaryOptions = [
-              `[중계] 👥 조 짜기 모드! 전원 무탈하게 우정 마라톤 완주 중입니다!`,
+              `[중계] 👥 조 짜기 모드! 선두 그룹을 카메라가 추적 중!`,
               `[중계] 긴 트랙을 채우는 아름다운 네온 대형!`,
               `[중계] 단체 골인을 향한 힘찬 전진!`
             ];
@@ -1342,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           
           if (!isWinner && state.x >= state.fallX) {
             state.isDead = true;
-            state.element.classList.remove('racing');
+            state.element.classList.remove('racing', 'race-leader');
             state.element.classList.add('dead');
             
             eliminatedQueue.push(uid);
@@ -1355,14 +1377,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
 
-      // 가로 좌표 업데이트 (경기장 좌표계와 동일)
-      spawnedCharacters.forEach((state, uid) => {
+      // 가로 좌표 업데이트 (delta-time 기반)
+      spawnedCharacters.forEach((state) => {
         if (state.isDead) return;
 
-        if (state.x >= 2500) {
+        if (state.x >= FINISH_X) {
           if (!state.isFinished) {
             state.isFinished = true;
-            state.x = 2500;
+            state.x = FINISH_X;
             const charName = getUserDisplayName({
               display_name: state.element.querySelector('.char-name-bubble').textContent
             });
@@ -1374,8 +1396,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
 
-        const frameSpeed = state.speed + Math.sin(frameIndex * 0.08 + state.randomSeed) * 0.12;
-        state.x += frameSpeed;
+        const wobble = Math.sin(frameIndex * 0.08 + state.randomSeed) * 8;
+        state.x += (state.speed + wobble) * dt;
 
         state.bodyElement.classList.remove('facing-left');
 
@@ -1387,34 +1409,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.element.style.zIndex = String(20 + Math.round(state.y)); 
       });
 
-      // 🔍 선두 그룹 추적 카메라 + 인원수 비례 줌
+      // 🎥 1등(선두) 카메라 워킹 — 가장 앞선 주자를 화면 중앙에 고정
       if (aliveRunners.length > 0) {
-        let sumX = 0;
-        let runningCount = 0;
-        let leadX = 0;
-
+        let leader = aliveRunners[0];
         aliveRunners.forEach(r => {
-          if (!r.state.isFinished) {
-            sumX += r.state.x;
-            runningCount++;
-            if (r.state.x > leadX) leadX = r.state.x;
-          }
+          if (r.state.x > leader.state.x) leader = r;
+        });
+        leaderUid = leader.id;
+        const leadX = leader.state.x;
+
+        spawnedCharacters.forEach((st, uid) => {
+          st.element.classList.toggle('race-leader', uid === leaderUid && !st.isDead);
         });
 
-        const focusX = runningCount > 0 ? (sumX / runningCount) : 2500;
-
-        // 주자 평균 위치를 화면 좌측 ~80px 지점에 유지
-        const targetCamX = 80 - focusX;
-        camX += (targetCamX - camX) * 0.14;
+        // 폰 화면(~390px) 중앙 부근에 1등 유지
+        const viewFocus = 175;
+        const targetCamX = viewFocus - leadX;
+        camX += (targetCamX - camX) * 0.28;
 
         let currentAliveCount = 0;
         spawnedCharacters.forEach((st) => {
           if (!st.isDead) currentAliveCount++;
         });
 
-        const baseZoom = Math.max(0.5, 1.05 - (totalRunnersCount * 0.012));
-        const targetZoom = baseZoom + ((totalRunnersCount - currentAliveCount) / Math.max(1, totalRunnersCount)) * (1.45 - baseZoom);
-        currentZoom += (targetZoom - currentZoom) * 0.05;
+        // 인원 줄수록 살짝 줌인, 후반부에도 1등이 잘 보이게
+        const progress = Math.min(1, leadX / FINISH_X);
+        const baseZoom = 1.05;
+        const targetZoom = baseZoom + progress * 0.2 + ((totalRunnersCount - currentAliveCount) / Math.max(1, totalRunnersCount)) * 0.15;
+        currentZoom += (targetZoom - currentZoom) * 0.08;
 
         cameraStage.style.transform = `translate(${camX}px, 0px) scale(${currentZoom})`;
 

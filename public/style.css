@@ -1427,6 +1427,17 @@ body {
   transition: none !important; 
 }
 
+/* 🥇 1등 주자 하이라이트 (카메라 추적 대상) */
+.meadow-character.race-leader .char-body {
+  filter: drop-shadow(0 0 10px rgba(255, 204, 0, 0.85)) !important;
+}
+.meadow-character.race-leader .char-name-bubble {
+  background: rgba(255, 204, 0, 0.92) !important;
+  border-color: rgba(180, 140, 0, 0.5) !important;
+  color: #1d1d1f !important;
+  transform: scale(1.08);
+}
+
 .meadow-character.dragging {
   cursor: grabbing;
   z-index: 1000;
