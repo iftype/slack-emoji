@@ -679,45 +679,55 @@ select {
   color: var(--text-primary);
 }
 
-/* 슬랙 메시지 본문 가독성 인프런 카드 스타일 */
+/* 💬 슬랙 오리지널 메시지 카드 스타일 (2번 레퍼런스 이미지 100% 동일) */
 .message-info {
-  background: #f8f9fa;
-  border: 1px solid #e4e5e7;
-  border-left: 4px solid var(--primary);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-}
-
-.user-profile {
   display: flex;
-  align-items: center;
+  gap: 12px;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid #e4e5e7;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.message-info .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px; /* 슬랙 오리지널 둥근 사각형 프로필 */
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.message-info-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.message-info-header {
+  display: flex;
+  align-items: baseline;
   gap: 8px;
-  margin-bottom: 6px;
 }
 
-.user-profile .avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-}
-
-.user-profile .username {
-  font-size: 13px;
+.message-info-header .username {
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-.user-profile .timestamp {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-left: 4px;
+.message-info-header .timestamp {
+  font-size: 12px;
+  color: #858a8d;
 }
 
 .message-content {
-  font-size: 13px;
-  line-height: 1.55;
-  color: #2b2d30;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1b1c1d;
   word-break: break-word;
   margin: 0;
 }

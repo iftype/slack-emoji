@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=5.1.0">
+  <link rel="stylesheet" href="style.css?v=5.2.0">
 </head>
 <body>
   <!-- 📱 데스크탑 중앙 정렬 모바일 목업 컨테이너 (Max Width 430px) -->
@@ -111,14 +111,14 @@
               <!-- 2. 분석 결과 (이모지 및 반응자 / 미반응자) -->
               <section id="result-section" class="panel-card result-card hidden">
                 <div class="message-info">
-                  <div class="user-profile">
-                    <img id="message-avatar" src="" alt="Avatar" class="avatar">
-                    <div class="user-meta">
+                  <img id="message-avatar" src="" alt="Avatar" class="avatar">
+                  <div class="message-info-body">
+                    <div class="message-info-header">
                       <span id="message-author" class="username">작성자</span>
                       <span id="message-time" class="timestamp">시간</span>
                     </div>
+                    <p id="message-text" class="message-content"></p>
                   </div>
-                  <p id="message-text" class="message-content"></p>
                 </div>
 
                 <!-- 탭 메뉴 (이모지 vs 미반응자) -->

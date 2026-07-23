@@ -197,7 +197,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderAnalysisResult(msg) {
     messageAvatar.src = msg.user.avatar || 'https://via.placeholder.com/40';
     messageAuthor.textContent = msg.user.real_name || msg.user.name;
-    messageTime.textContent = msg.ts ? new Date(parseFloat(msg.ts) * 1000).toLocaleString('ko-KR') : '';
+
+    if (msg.ts) {
+      const dateObj = new Date(parseFloat(msg.ts) * 1000);
+      const hours = dateObj.getHours();
+      const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? '오후' : '오전';
+      const formattedHour = hours % 12 || 12;
+      messageTime.textContent = `${ampm} ${formattedHour}:${minutes}`;
+    } else {
+      messageTime.textContent = '';
+    }
+
     messageText.innerHTML = parseTextEmojis(msg.text, customEmojiCache);
 
     currentUnreactedUsers = msg.unreactedUsers || [];
