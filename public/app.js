@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       emojiFilterChips.appendChild(chip);
     });
 
-    selectAllEmojis.checked = false;
+    if (selectAllEmojis) selectAllEmojis.checked = false;
     renderUserAnalysisPanel(reactions);
   }
 
