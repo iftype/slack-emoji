@@ -475,7 +475,9 @@ body {
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 440px;
+  height: 62vh;
+  max-height: 540px;
+  min-height: 360px;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -491,21 +493,23 @@ body {
 
 .bottom-sheet-handle {
   width: 100%;
-  padding: 10px 0;
+  padding: 12px 0;
   display: flex;
   justify-content: center;
   cursor: pointer;
+  touch-action: none;
 }
 
 .handle-bar {
-  width: 36px;
-  height: 4px;
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 2px;
+  width: 40px;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
 }
 
 .panel-body {
   flex: 1;
+  height: calc(100% - 29px);
   overflow: hidden;
   padding: 0 16px 16px;
 }
@@ -526,8 +530,31 @@ body {
 .slide-panel {
   width: 33.333%;
   height: 100%;
-  overflow-y: auto;
-  padding-right: 2px;
+  max-height: 100%;
+  overflow-y: scroll !important;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-right: 4px;
+  padding-bottom: 40px;
+}
+
+/* 세련된 내부 커스텀 스크롤바 */
+.slide-panel::-webkit-scrollbar {
+  width: 5px;
+}
+
+.slide-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.slide-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+}
+
+.slide-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .panel-header {
