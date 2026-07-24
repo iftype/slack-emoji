@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (In-Place Re-Spin on Result Page)
+// Slack Meadow - Complete React 18 Application Component (3-Step Sequential Workflow & Home Reset)
 
 const { useState, useEffect, useRef } = React;
 
@@ -240,7 +240,70 @@ function App() {
     }
   };
 
-  // 🎰 Roulette Core Spin Animation (keepSlide: 다시뽑기 시 현재 결과 슬라이드 유지)
+  // 🎯 요구사항 2: [추첨하기] 클릭 시 바로 추첨하는 것이 아니라 2단계(Slide 1: 추첨기 모드 & 명단 관리)로 이동하여 명단을 확인하도록 개선!
+  const handleAddToDrawList = () => {
+    let targetUsers = [];
+    let emojiName = 'check';
+
+    if (activeEmojiGroup && activeEmojiGroup.users && activeEmojiGroup.users.length > 0) {
+      targetUsers = activeEmojiGroup.users.map(normalizeUser);
+      emojiName = activeEmojiGroup.name;
+    } else if (analyzedMsg && analyzedMsg.reactions && analyzedMsg.reactions.length > 0) {
+      targetUsers = analyzedMsg.reactions[0].users.map(normalizeUser);
+      emojiName = analyzedMsg.reactions[0].name;
+    } else {
+      targetUsers = FALLBACK_USERS.map(normalizeUser);
+    }
+
+    const group = {
+      messageLink: slackUrl.trim() || 'Emoji Group',
+      messageText: analyzedMsg ? analyzedMsg.text : '',
+      emoji: emojiName,
+      users: shuffleArray(targetUsers)
+    };
+
+    setFeedbacks(prev => [...prev, group]);
+    setBottomSheetCollapsed(false);
+    setCurrentSlide(1); // 2단계 명단 확인 페이지로 이동!
+  };
+
+  // Summon Unreacted Users -> 2단계 명단 확인 페이지로 이동
+  const handleSummonUnreacted = () => {
+    const targetUsers = (unreactedUsers.length > 0 ? unreactedUsers : FALLBACK_USERS).map(normalizeUser);
+    const group = {
+      messageLink: slackUrl.trim() || 'Unreacted Group',
+      messageText: '',
+      emoji: '🚨 미반응자',
+      users: shuffleArray(targetUsers)
+    };
+    setFeedbacks(prev => [...prev, group]);
+    setBottomSheetCollapsed(false);
+    setCurrentSlide(1); // 2단계 명단 확인 페이지로 이동!
+  };
+
+  // Summon Channel All -> 2단계 명단 확인 페이지로 이동
+  const handleSummonChannelAll = () => {
+    const uniqueUserMap = new Map();
+    if (analyzedMsg && analyzedMsg.reactions) {
+      analyzedMsg.reactions.forEach(r => {
+        (r.users || []).map(normalizeUser).forEach(u => uniqueUserMap.set(u.id, u));
+      });
+    }
+    if (uniqueUserMap.size === 0) {
+      FALLBACK_USERS.forEach(u => uniqueUserMap.set(u.id, u));
+    }
+    const group = {
+      messageLink: slackUrl.trim() || 'Channel Group',
+      messageText: '',
+      emoji: `🌐 채널 전체 (${uniqueUserMap.size}명)`,
+      users: shuffleArray(Array.from(uniqueUserMap.values()))
+    };
+    setFeedbacks(prev => [...prev, group]);
+    setBottomSheetCollapsed(false);
+    setCurrentSlide(1); // 2단계 명단 확인 페이지로 이동!
+  };
+
+  // 🎰 Roulette / Group Dealer Spin Animation
   const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
@@ -260,7 +323,6 @@ function App() {
     const allRunners = getAllRunners(sourceFeedbacks).length > 0 ? getAllRunners(sourceFeedbacks) : activeRunners;
     setBottomSheetCollapsed(false);
 
-    // 🎯 다시뽑기(keepSlide === true)일 때는 첫 페이지(Slide 0)로 돌아가지 않고 현재 페이지에서 바로 회전!
     if (!keepSlide) {
       setCurrentSlide(0);
     }
@@ -270,11 +332,9 @@ function App() {
       setShowCommentary(true);
       setCommentaryText('🎰 룰렛 돌리는 중... 틱틱틱!');
 
-      // Select random winner from active runners
       const winnerIndex = Math.floor(Math.random() * activeRunners.length);
       const winner = activeRunners[winnerIndex];
 
-      // Build 15-cycle continuous reel
       const REPEAT_COUNT = 15;
       let reelList = [];
       const baseCycle = [...allRunners].sort(() => Math.random() - 0.5);
@@ -314,7 +374,6 @@ function App() {
         setIsRolling(false);
         setCommentaryText(`🎉 [${getUserDisplayName(winner)}] 님 당첨!`);
         
-        // Highlight winner card
         setReelCards(prev => prev.map((card, idx) => {
           if (idx === targetIndex) {
             return { ...card, isWinnerHighlight: true };
@@ -322,7 +381,6 @@ function App() {
           return card;
         }));
 
-        // Update winner state
         setPickedWinners(prev => [...prev, winner]);
         setFeedbacks(prevFeedbacks => prevFeedbacks.map(f => ({
           ...f,
@@ -331,10 +389,9 @@ function App() {
 
         if (!keepSlide) {
           setTimeout(() => {
-            setCurrentSlide(2); // Slide to result view
+            setCurrentSlide(2);
           }, 800);
         } else {
-          // 결과 페이지에서 바로 뽑았을 때 자동 스크롤 다운
           setTimeout(() => {
             if (rankingScrollRef.current) {
               rankingScrollRef.current.scrollTop = rankingScrollRef.current.scrollHeight;
@@ -344,7 +401,7 @@ function App() {
       }, 2500);
 
     } else {
-      // Group Dealer Mode
+      // 🎴 조 짜기 (팀 나누기) 모드 구동!!
       setIsRolling(true);
       setShowCommentary(true);
       setCommentaryText('👥 무작위 조 구성 중...');
@@ -367,69 +424,6 @@ function App() {
     }
   };
 
-  // 🚨 [초록색 "추첨하기" 버튼 클릭 시 -> 즉시 명단 추가 + 룰렛 직행 회전 구동!]
-  const handleAddToDrawList = () => {
-    let targetUsers = [];
-    let emojiName = 'check';
-
-    if (activeEmojiGroup && activeEmojiGroup.users && activeEmojiGroup.users.length > 0) {
-      targetUsers = activeEmojiGroup.users.map(normalizeUser);
-      emojiName = activeEmojiGroup.name;
-    } else if (analyzedMsg && analyzedMsg.reactions && analyzedMsg.reactions.length > 0) {
-      targetUsers = analyzedMsg.reactions[0].users.map(normalizeUser);
-      emojiName = analyzedMsg.reactions[0].name;
-    } else {
-      targetUsers = FALLBACK_USERS.map(normalizeUser);
-    }
-
-    const group = {
-      messageLink: slackUrl.trim() || 'Emoji Group',
-      messageText: analyzedMsg ? analyzedMsg.text : '',
-      emoji: emojiName,
-      users: shuffleArray(targetUsers)
-    };
-
-    const nextFeedbacks = [...feedbacks, group];
-    setFeedbacks(nextFeedbacks);
-    runSingleLotterySpin(nextFeedbacks);
-  };
-
-  // Summon Unreacted Users
-  const handleSummonUnreacted = () => {
-    const targetUsers = (unreactedUsers.length > 0 ? unreactedUsers : FALLBACK_USERS).map(normalizeUser);
-    const group = {
-      messageLink: slackUrl.trim() || 'Unreacted Group',
-      messageText: '',
-      emoji: '🚨 미반응자',
-      users: shuffleArray(targetUsers)
-    };
-    const nextFeedbacks = [...feedbacks, group];
-    setFeedbacks(nextFeedbacks);
-    runSingleLotterySpin(nextFeedbacks);
-  };
-
-  // Summon Channel All
-  const handleSummonChannelAll = () => {
-    const uniqueUserMap = new Map();
-    if (analyzedMsg && analyzedMsg.reactions) {
-      analyzedMsg.reactions.forEach(r => {
-        (r.users || []).map(normalizeUser).forEach(u => uniqueUserMap.set(u.id, u));
-      });
-    }
-    if (uniqueUserMap.size === 0) {
-      FALLBACK_USERS.forEach(u => uniqueUserMap.set(u.id, u));
-    }
-    const group = {
-      messageLink: slackUrl.trim() || 'Channel Group',
-      messageText: '',
-      emoji: `🌐 채널 전체 (${uniqueUserMap.size}명)`,
-      users: shuffleArray(Array.from(uniqueUserMap.values()))
-    };
-    const nextFeedbacks = [...feedbacks, group];
-    setFeedbacks(nextFeedbacks);
-    runSingleLotterySpin(nextFeedbacks);
-  };
-
   const handleDeleteFeedbackGroup = (idx) => {
     setFeedbacks(prev => prev.filter((_, i) => i !== idx));
   };
@@ -440,7 +434,6 @@ function App() {
     setGroupTeams(null);
   };
 
-  // Copy Result Formatting Helper
   const handleCopyResults = () => {
     if (gameMode === 'group' && groupTeams) {
       const lines = groupTeams.map((team, idx) => {
@@ -456,10 +449,17 @@ function App() {
     }
   };
 
-  const handleConfirmAndClose = () => {
+  // 🎯 요구사항 1: 홈으로 가기 핸들러 (확정 및 닫기 버튼 전면 제거)
+  const handleGoHome = () => {
     setPickedWinners([]);
+    setGroupTeams(null);
+    setFeedbacks([]);
+    setReelCards([]);
+    setSlackUrl('');
+    setAnalyzedMsg(null);
+    setUnreactedUsers([]);
     setCurrentSlide(0);
-    setBottomSheetCollapsed(true);
+    setBottomSheetCollapsed(false);
   };
 
   const activeRunners = getUniqueActiveRunners();
@@ -638,7 +638,7 @@ function App() {
                               <span className="emoji-badge" dangerouslySetInnerHTML={{ __html: renderEmojiIcon(activeEmojiGroup.name, customEmojis) }}></span>
                               <span className="count-label">{activeEmojiGroup.users ? activeEmojiGroup.users.length : 0}명</span>
                               <button type="button" className="btn-success" onClick={handleAddToDrawList}>
-                                추첨하기
+                                추첨 명단에 추가 ➡️
                               </button>
                             </div>
                             <div className="detail-user-list">
@@ -661,7 +661,7 @@ function App() {
                               const names = unreactedUsers.map(getUserDisplayName).join(' ');
                               navigator.clipboard.writeText(names);
                             }}>📋 명단 복사</button>
-                            <button type="button" className="btn-xs-indigo" onClick={handleSummonUnreacted}>🎰 추첨기에 추가</button>
+                            <button type="button" className="btn-xs-indigo" onClick={handleSummonUnreacted}>🎰 추첨 명단에 추가 ➡️</button>
                           </div>
                         </div>
                         <div className="unreacted-user-list">
@@ -709,8 +709,10 @@ function App() {
                       🌐 채널 전체로 돌리기
                     </button>
                   </div>
-                  <div className="mode-tab-row">
-                    <label className="mode-tab-label">
+                  
+                  {/* 🎯 요구사항 3: 복구된 🏆 무작위 추첨 vs 👥 조 짜기(팀 나누기) 선택 탭 */}
+                  <div className="mode-tab-row" style={{ display: 'flex', gap: '8px', margin: '8px 0' }}>
+                    <label className="mode-tab-label" style={{ flex: 1 }}>
                       <input
                         type="radio"
                         name="game-mode"
@@ -718,9 +720,9 @@ function App() {
                         checked={gameMode === 'podium'}
                         onChange={() => setGameMode('podium')}
                       />
-                      <span className="mode-tab-btn">🏆 무작위 추첨</span>
+                      <span className="mode-tab-btn" style={{ textAlign: 'center', width: '100%' }}>🏆 무작위 추첨</span>
                     </label>
-                    <label className="mode-tab-label">
+                    <label className="mode-tab-label" style={{ flex: 1 }}>
                       <input
                         type="radio"
                         name="game-mode"
@@ -728,7 +730,7 @@ function App() {
                         checked={gameMode === 'group'}
                         onChange={() => setGameMode('group')}
                       />
-                      <span className="mode-tab-btn">👥 조 짜기</span>
+                      <span className="mode-tab-btn" style={{ textAlign: 'center', width: '100%' }}>👥 조 짜기 (팀 나누기)</span>
                     </label>
                   </div>
 
@@ -786,7 +788,7 @@ function App() {
                   </div>
 
                   <button type="button" className="btn-primary btn-race" onClick={() => runSingleLotterySpin()} style={{ marginTop: '12px', padding: '13px', fontSize: '15px' }}>
-                    🎰 {gameMode === 'podium' ? '추첨 시작!' : '팀 나누기!'}
+                    {gameMode === 'podium' ? '🎰 추첨 시작!' : '🎴 조 짜기 (팀 나누기)!'}
                   </button>
                 </section>
               </div>
@@ -848,11 +850,12 @@ function App() {
                       <span className="btn-text">
                         {gameMode === 'podium' 
                           ? (activeRunners.length > 0 ? `🎰 다음 당첨자 뽑기 (남은 ${activeRunners.length}명)` : '🎉 추첨 완료')
-                          : '다시 조 짜기'}
+                          : '🎴 다시 조 짜기'}
                       </span>
                     </button>
-                    <button type="button" className="btn-secondary-outline" onClick={handleConfirmAndClose} style={{ margin: 0 }}>
-                      확정 및 닫기
+                    {/* 🎯 요구사항 1: 확정 및 닫기 전면 제거 후 🏠 홈으로 가기 버튼 생성! */}
+                    <button type="button" className="btn-secondary-outline" onClick={handleGoHome} style={{ margin: 0 }}>
+                      🏠 홈으로 가기
                     </button>
                   </div>
                 </section>
