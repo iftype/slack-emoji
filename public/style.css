@@ -414,6 +414,18 @@ body {
   border: 2px solid var(--primary) !important;
   box-shadow: 0 4px 16px rgba(0, 196, 113, 0.3) !important;
 }
+
+/* 🚨 이미 당첨된 유저는 룰렛에서 이름을 빼지 않고 회색 취소선 딤드 처리! */
+.picker-card-2d.done-runner-card {
+  opacity: 0.42 !important;
+  background: #f1f3f5 !important;
+  border: 1px dashed #ced4da !important;
+  filter: grayscale(100%) !important;
+}
+.picker-card-2d.done-runner-card .card-name {
+  color: #868e96 !important;
+  text-decoration: line-through !important;
+}
   border-radius: 12px;
   display: flex;
   align-items: center;
