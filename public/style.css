@@ -627,15 +627,20 @@ select {
 
 .bottom-sheet-handle {
   width: 100%;
-  padding: 12px 0;
+  height: 28px;
   display: flex;
+  align-items: center;
   justify-content: center;
   cursor: pointer;
-  touch-action: none;
+  background: #ffffff;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
 
 .handle-bar {
-  width: 40px;
+  width: 44px;
   height: 5px;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 3px;

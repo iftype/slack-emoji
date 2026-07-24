@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Strict 3-Step Workflow v34.0.0)
+// Slack Meadow Main App Controller (Auto-Scroll & Visible Sheet Guarantee v35.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pickedWinners = [];
   let lastGroupResult = null;
 
-  // 🛡️ 기본 백업 유저 데이터
+  // 🛡️ 백업 데이터
   const FALLBACK_USERS = [
     { id: 'usr_1', name: '재키(최재영)', real_name: '재키(최재영)', display_name: '재키(최재영)', avatar: 'https://ca.slack-edge.com/T000-U001-avatar.png' },
     { id: 'usr_2', name: '와이제리(최용준)', real_name: '와이제리(최용준)', display_name: '와이제리(최용준)', avatar: 'https://ca.slack-edge.com/T000-U002-avatar.png' },
@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       if (currentFeedbacksData.length === 0) {
-        container.innerHTML = '<p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
+        container.innerHTML = '<p class="empty-text" style="color:#64748b;font-weight:600;padding:20px;text-align:center;">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
         if (startRaceBtn) startRaceBtn.classList.add('hidden');
         renderRoulettePreview([]);
         return;
@@ -207,14 +207,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
         const userList = (f.users || []).map(normalizeUser);
         html += `
-          <div class="feedback-group-item" style="background:#f8f9fa;border:1px solid #e4e5e7;border-radius:10px;padding:10px;margin-bottom:8px;">
-            <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
+          <div class="feedback-group-item" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;margin-bottom:8px;color:#0f172a;">
               <span>${emojiBadge} (${userList.length}명)</span>
-              <button class="btn-danger-xs" data-idx="${fIdx}">삭제</button>
+              <button class="btn-danger-xs" data-idx="${fIdx}" style="background:#ef4444;color:#ffffff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">삭제</button>
             </div>
-            <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
+            <div class="group-users" style="display:flex;flex-wrap:wrap;gap:6px;">
               ${userList.map(u => `
-                <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${getUserDisplayName(u)}</span>
+                <span class="user-tag" style="font-size:12px;background:#f1f5f9;color:#334155;padding:3px 8px;border-radius:8px;border:1px solid #cbd5e1;font-weight:500;${u.done ? 'text-decoration:line-through;opacity:0.4;' : ''}">${getUserDisplayName(u)}</span>
               `).join('')}
             </div>
           </div>
@@ -322,8 +322,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
+    
+    // 바텀시트 열기 및 2단계 이동
     if (bottomSheet) bottomSheet.classList.remove('collapsed');
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    const slide2 = getEl('slide-2');
+    if (slide2) slide2.scrollTop = 0;
   });
 
   // 🔍 슬랙 URL 분석 폼 전송
@@ -457,6 +461,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderFeedbackList(currentFeedbacksData);
     if (bottomSheet) bottomSheet.classList.remove('collapsed');
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    const slide2 = getEl('slide-2');
+    if (slide2) slide2.scrollTop = 0;
   });
 
   function updateSelectedEmojiDetail(reactionData) {
@@ -477,7 +483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🚨 [초록색 "추첨하기" 버튼 클릭 시 -> 추첨 명단 등록 후 2단계 (🎮 추첨 모드 설정 & 명단 관리창) 로 이동!]
+  // 🚨 [초록색 "추첨하기" 버튼 -> 명단 추가 후 슬라이드 2 (🎮 추첨 모드 & 명단 관리) 로 100% 이동!]
   addToFeedbackBtn?.addEventListener('click', () => {
     let targetUsers = [];
     let emojiName = 'check';
@@ -503,9 +509,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
     
-    // 🎯 바텀시트 펼치고 2단계 (🎮 추첨 모드 및 소환 명단 관리창) 으로 시원하게 이동!
+    // 🎯 바텀시트 펼치기 + 슬라이드 2번으로 화면 전환 및 스크롤 상단 고정!
     if (bottomSheet) bottomSheet.classList.remove('collapsed');
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    const slide2 = getEl('slide-2');
+    if (slide2) slide2.scrollTop = 0;
   });
 
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
