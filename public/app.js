@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Hardened Slide-Switching Version v21.0.0)
+// Slack Meadow Main App Controller (Auto-Select & Direct Addition v24.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -45,7 +45,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bottomSheetHandle = getEl('bottom-sheet-handle');
   const rouletteStage = getEl('roulette-stage');
   const rouletteReelContainer = getEl('roulette-reel-container');
-  const groupDealerStage = getEl('group-dealer-stage');
   const groupBoxesGrid = getEl('group-boxes-grid');
 
   const startRaceBtn = getEl('start-race-btn');
@@ -93,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return shuffled;
   }
 
-  // 🚨 [핵심 헬퍼 함수 - Null Safe]
+  // 🚨 [핵심 헬퍼 함수]
   function getAllRunners() {
     const runnerMap = new Map();
     (currentFeedbacksData || []).forEach(f => {
@@ -343,9 +342,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       emojiFilterChips.innerHTML = '';
       const reactions = msg.reactions || [];
 
-      reactions.forEach(r => {
+      reactions.forEach((r, idx) => {
         const chip = document.createElement('div');
-        chip.className = 'emoji-chip';
+        chip.className = `emoji-chip ${idx === 0 ? 'selected' : ''}`;
         chip.dataset.emojiName = r.name;
         chip.innerHTML = `<span class="chip-icon">${renderEmojiIcon(r.name, customEmojiCache)}</span> <span class="chip-count">${r.count}</span>`;
 
@@ -356,6 +355,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         emojiFilterChips.appendChild(chip);
       });
+
+      // 🎯 첫 번째 이모지 칩 자동 선택!
+      if (reactions.length > 0) {
+        updateSelectedEmojiDetail(reactions[0]);
+      }
     }
 
     if (selectAllEmojis) selectAllEmojis.checked = false;
@@ -439,9 +443,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🚨 [이모지 선택 후 추첨 명단 추가 버튼]
+  // 🚨 [이모지 명단 추가 버튼 - 미선택 시 자동 첫번째 이모지 그룹 추가]
   addToFeedbackBtn?.addEventListener('click', () => {
-    if (!currentAnalyzedMessage || !activeEmojiGroup) return;
+    if (!currentAnalyzedMessage) return;
+    
+    // 만약 activeEmojiGroup이 지정되지 않았으면 첫번째 이모지 그룹 자동 채택
+    if (!activeEmojiGroup && currentAnalyzedMessage.reactions && currentAnalyzedMessage.reactions.length > 0) {
+      activeEmojiGroup = currentAnalyzedMessage.reactions[0];
+    }
+
+    if (!activeEmojiGroup) {
+      alert('추첨 명단으로 추가할 이모지를 선택해주세요!');
+      return;
+    }
+
     const shuffledUsers = shuffleArray(activeEmojiGroup.users);
     const group = {
       messageLink: slackUrlInput ? slackUrlInput.value.trim() : 'Emoji Group',
@@ -451,6 +466,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
+    
+    // 명단 슬라이드2 로 전환 및 바텀시트 열기!
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
     bottomSheet?.classList.remove('collapsed');
   });
