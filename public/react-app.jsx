@@ -197,21 +197,25 @@ const SlackApi = {
   async analyzeSlackUrl(url) {
     let lastErrorMsg = '슬랙 메시지를 가져올 수 없습니다.';
 
-    // 1차 시도: Vercel 또는 로컬 서버 엔드포인트
-    try {
-      const res = await fetch(`${API_BASE}/api/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      });
-      const data = await res.json();
-      if (res.ok && data.ok) return data;
-      if (data && data.error) lastErrorMsg = data.error;
-    } catch (e) {
-      if (e && e.message) lastErrorMsg = e.message;
+    // 로컬 개발 환경에서만 로컬 서버 시도
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (isLocal) {
+      try {
+        const res = await fetch(`${API_BASE}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) return data;
+        if (data && data.error) lastErrorMsg = data.error;
+      } catch (e) {
+        if (e && e.message) lastErrorMsg = e.message;
+      }
     }
 
-    // 2차 시도: EC2 라이브 백엔드 서버로 자동 폴백 (SLACK_TOKEN 완비)
+    // Vercel/외부 환경: 바로 EC2 라이브 백엔드로 요청 (SLACK_TOKEN 완비)
     try {
       const fallbackRes = await fetch(`${EC2_FALLBACK_BASE}/api/analyze`, {
         method: 'POST',
@@ -228,6 +232,7 @@ const SlackApi = {
     throw new Error(lastErrorMsg);
   }
 };
+
 
 // 3. Main React Application Component
 function App() {
