@@ -9,15 +9,17 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// CORS 설정 (GitHub Pages에서 API 호출 허용)
+// CORS 설정 (Vercel, GitHub Pages, 로컬에서 API 호출 허용)
 app.use((req, res, next) => {
   const allowedOrigins = [
+    'https://slack-emoji-xi.vercel.app',
     'https://iftype.github.io',
     'http://localhost:3000',
     'http://localhost:3001'
   ];
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  // Vercel 프리뷰 도메인(.vercel.app)도 모두 허용
+  if (allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app'))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
