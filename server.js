@@ -247,6 +247,7 @@ app.post('/api/analyze', async (req, res) => {
     return res.status(400).json({ ok: false, error: 'xoxc- 토큰을 쓰려면 SLACK_COOKIE 환경변수가 필요합니다.' });
   }
 
+
   const parsed = parseSlackUrl(url);
   if (!parsed) {
     return res.status(400).json({ ok: false, error: '유효한 슬랙 메시지 또는 파일/이미지 링크 형식이 아닙니다.' });
@@ -258,39 +259,72 @@ app.post('/api/analyze', async (req, res) => {
       headers['Cookie'] = `d=${cookie}`;
     }
 
-    const params = { full: true };
+    let channelId = parsed.channelId;
+    let timestamp = parsed.timestamp;
+
+    // 📎 파일 링크인 경우: files.info로 공유된 채널+타임스탬프 추출
     if (parsed.fileId) {
-      params.file = parsed.fileId;
-    } else {
-      params.channel = parsed.channelId;
-      params.timestamp = parsed.timestamp;
+      const fileInfoRes = await axios.get('https://slack.com/api/files.info', {
+        headers,
+        params: { file: parsed.fileId }
+      });
+
+      if (!fileInfoRes.data.ok) {
+        const slackError = fileInfoRes.data.error;
+        let msg = `슬랙 파일 정보를 가져올 수 없습니다: ${slackError}`;
+        if (slackError === 'file_not_found') msg = '해당 파일을 찾을 수 없거나 접근 권한이 없습니다.';
+        if (slackError === 'invalid_auth') msg = '슬랙 인증이 만료되었습니다. 서버 토큰을 확인해 주세요.';
+        return res.status(400).json({ ok: false, error: msg });
+      }
+
+      const fileData = fileInfoRes.data.file;
+      const shares = fileData.shares || {};
+
+      // public 또는 private 채널에서 공유된 첫 번째 채널+타임스탬프를 사용
+      let foundChannel = null;
+      let foundTs = null;
+      for (const shareType of ['public', 'private']) {
+        if (shares[shareType]) {
+          for (const [chId, shareList] of Object.entries(shares[shareType])) {
+            if (Array.isArray(shareList) && shareList.length > 0) {
+              foundChannel = chId;
+              foundTs = shareList[0].ts;
+              break;
+            }
+          }
+        }
+        if (foundChannel) break;
+      }
+
+      if (!foundChannel || !foundTs) {
+        return res.status(400).json({
+          ok: false,
+          error: '이 파일이 채널에 공유된 메시지를 찾을 수 없습니다. 채널에 올린 이미지의 파일 링크를 사용해 주세요.'
+        });
+      }
+
+      channelId = foundChannel;
+      timestamp = foundTs;
     }
 
+    // 메시지 반응 조회
     const response = await axios.get('https://slack.com/api/reactions.get', {
       headers,
-      params
+      params: { channel: channelId, timestamp, full: true }
     });
 
     if (!response.data.ok) {
       const slackError = response.data.error;
       let userFriendlyError = `슬랙 API 에러: ${slackError}`;
-      
-      if (slackError === 'invalid_auth') {
-        userFriendlyError = '슬랙 인증 세션이 만료되었습니다. 서버 토큰을 확인해 주세요.';
-      } else if (slackError === 'channel_not_found') {
-        userFriendlyError = '채널을 찾을 수 없거나 접근 권한이 없습니다. (해당 채널에 토큰 계정이 가입되어 있어야 합니다.)';
-      } else if (slackError === 'file_not_found') {
-        userFriendlyError = '해당 파일/이미지를 찾을 수 없거나 접근 권한이 없습니다.';
-      }
-      
+      if (slackError === 'invalid_auth') userFriendlyError = '슬랙 인증 세션이 만료되었습니다. 서버 토큰을 확인해 주세요.';
+      else if (slackError === 'channel_not_found') userFriendlyError = '채널을 찾을 수 없거나 접근 권한이 없습니다. (해당 채널에 토큰 계정이 가입되어 있어야 합니다.)';
+      else if (slackError === 'file_not_found') userFriendlyError = '해당 파일/이미지를 찾을 수 없거나 접근 권한이 없습니다.';
       return res.status(400).json({ ok: false, error: userFriendlyError });
     }
 
     const messageData = response.data.message || response.data.file || {};
     const reactions = messageData.reactions || [];
 
-    const reactions = messageData.reactions || [];
-    
     // 고유 사용자 ID 목록 수집
     const userIds = new Set();
     reactions.forEach(r => {
@@ -328,8 +362,6 @@ app.post('/api/analyze', async (req, res) => {
       if (membersRes.data.ok && Array.isArray(membersRes.data.members)) {
         const allChannelMembers = membersRes.data.members;
         const unreactedMemberIds = allChannelMembers.filter(id => !userIds.has(id));
-        
-        // 상위 100명까지 병렬 정보 로드 및 봇 제외
         const unreactedPromises = unreactedMemberIds.slice(0, 100).map(async (uid) => {
           const info = await getUserInfo(uid, token, cookie);
           return info.is_bot ? null : info;
@@ -337,6 +369,8 @@ app.post('/api/analyze', async (req, res) => {
         const unreactedResults = await Promise.all(unreactedPromises);
         unreactedUsers = unreactedResults.filter(Boolean);
       }
+    } catch (e) {}
+
     let customEmojis = {};
     try {
       const emojiRes = await axios.get('https://slack.com/api/emoji.list', { headers });
@@ -364,6 +398,7 @@ app.post('/api/analyze', async (req, res) => {
     return res.status(500).json({ ok: false, error: `서버 통신 중 오류 발생: ${error.message}` });
   }
 });
+
 
 // [피드백 관리 API]
 app.get('/api/feedbacks', (req, res) => {
