@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Guaranteed Bottom-Sheet & List Render v29.0.0)
+// Slack Meadow Main App Controller (Direct Spin on Emoji Pick v30.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -196,14 +196,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
         const userList = (f.users || []).map(normalizeUser);
         html += `
-          <div class="feedback-group-item" style="background:#ffffff;border:1.5px solid #6366f1;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 4px 12px rgba(99,102,241,0.08);">
-            <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;margin-bottom:8px;color:#1e293b;">
-              <span>${emojiBadge} <span style="color:#6366f1;">(${userList.length}명)</span></span>
-              <button class="btn-danger-xs" data-idx="${fIdx}" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">삭제</button>
+          <div class="feedback-group-item" style="background:#f8f9fa;border:1px solid #e4e5e7;border-radius:10px;padding:10px;margin-bottom:8px;">
+            <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
+              <span>${emojiBadge} (${userList.length}명)</span>
+              <button class="btn-danger-xs" data-idx="${fIdx}">삭제</button>
             </div>
-            <div class="group-users" style="display:flex;flex-wrap:wrap;gap:6px;">
+            <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
               ${userList.map(u => `
-                <span class="user-tag" style="font-size:12px;background:#f1f5f9;color:#334155;padding:3px 8px;border-radius:8px;border:1px solid #cbd5e1;font-weight:500;${u.done ? 'text-decoration:line-through;opacity:0.4;' : ''}">${getUserDisplayName(u)}</span>
+                <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${getUserDisplayName(u)}</span>
               `).join('')}
             </div>
           </div>
@@ -314,8 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
-    bottomSheet?.classList.remove('collapsed');
+    runSingleLotterySpin();
   });
 
   // 🔍 슬랙 URL 분석 폼 전송
@@ -441,8 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
-    bottomSheet?.classList.remove('collapsed');
+    runSingleLotterySpin();
   });
 
   function updateSelectedEmojiDetail(reactionData) {
@@ -456,19 +454,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (detailUserList) {
       detailUserList.innerHTML = shuffleArray(userList).map(u => `
         <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f7;padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
-          <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="style="width:18px;height:18px;border-radius:50%;">
+          <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
           <span>${getUserDisplayName(u)}</span>
         </div>
       `).join('');
     }
   }
 
-  // 🚨 [이모지 명단 추가 버튼 - 무조건 바텀시트 펼치고 2번 명단 슬라이드로 이동]
+  // 🚨 [초록색 "추첨하기" 버튼 클릭 시 -> 즉시 명단 등록 + 룰렛 직행 구동!!]
   addToFeedbackBtn?.addEventListener('click', () => {
-    // 무조건 바텀시트 펼치기 & 2번 명단 슬라이드로 전환
-    if (bottomSheet) bottomSheet.classList.remove('collapsed');
-    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
-
     if (!currentAnalyzedMessage) return;
     
     if (!activeEmojiGroup && currentAnalyzedMessage.reactions && currentAnalyzedMessage.reactions.length > 0) {
@@ -489,6 +483,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
+    
+    // 🔥 곧바로 룰렛 추첨 개시!
+    runSingleLotterySpin();
   });
 
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
@@ -515,7 +512,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     runSingleLotterySpin();
   });
 
-  // 🚨 [추첨 시작 기능 - 무조건 1번 룰렛 슬라이드로 이동]
+  // 🚨 [추첨 시작 기능 - 무조건 1번 룰렛 무대로 이동하며 구르기]
   function runSingleLotterySpin() {
     if (bottomSheet) bottomSheet.classList.remove('collapsed');
 
