@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Explicit Paste & Clear Button v68.0.0)
+// Slack Meadow - Complete React 18 Application Component (Robust API Routing & Vercel Integration v70.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -165,15 +165,16 @@ function buildCleanReelList(runners, winner, targetIndex = 18) {
   return reel;
 }
 
-// 2. API Communication Service
+// 2. API Communication Service (Vercel & Local Dynamic Binding)
 const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:3001'
-  : 'https://iftype.store/slack';
+  : (window.location.hostname.includes('github.io') ? 'https://slack-emoji-xi.vercel.app' : '');
 
 const SlackApi = {
   async fetchCustomEmojis() {
     try {
       const res = await fetch(`${API_BASE}/api/emojis`);
+      if (!res.ok) return {};
       const data = await res.json();
       return (data.ok && (data.emojis || data.emoji)) ? (data.emojis || data.emoji) : {};
     } catch (e) {
@@ -188,7 +189,7 @@ const SlackApi = {
       body: JSON.stringify({ url })
     });
     const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || '슬랙 메시지를 가져올 수 없습니다.');
+    if (!res.ok || !data.ok) throw new Error(data.error || '슬랙 메시지를 분석할 수 없습니다.');
     return data;
   }
 };
@@ -329,7 +330,7 @@ function App() {
     }
   }, [feedbacks, isRolling, pickedWinners.length]);
 
-  // 🎯 모바일/데스크톱 100% 호환 클립보드 붙여넣기 & 지우기 버튼 핸들러
+  // 🎯 모바일/데스크톱 붙여넣기 및 지우기 버튼
   const handlePasteOrClear = async () => {
     if (slackUrl) {
       setSlackUrl('');
@@ -378,7 +379,8 @@ function App() {
         setActiveEmojiGroup(msg.reactions[0]);
       }
     } catch (err) {
-      setStatusMsg(err.message);
+      // 🛡️ API 통신 실패 시 오류 안내와 함께 샘플 데이터로 안전 폴백
+      setStatusMsg(`⚠️ ${err.message} (샘플 데이터 모드로 동작합니다)`);
       const fallbackMsg = {
         user: FALLBACK_USERS[0],
         ts: Date.now() / 1000,
@@ -743,7 +745,6 @@ function App() {
                         placeholder="슬랙 메시지 링크 입력..."
                         required
                       />
-                      {/* 🎯 모바일/데스크톱 모두 작동하는 명확한 붙여넣기/지우기 버튼 */}
                       <button type="button" className="btn-paste-clip" onClick={handlePasteOrClear}>
                         {slackUrl ? '❌ 지우기' : '📋 붙여넣기'}
                       </button>
@@ -752,7 +753,7 @@ function App() {
                       <span className="btn-text">{loading ? '분석 중...' : '이모지 가져오기'}</span>
                     </button>
                   </form>
-                  {statusMsg && <div className="status-message" style={{ marginTop: '8px' }}>{statusMsg}</div>}
+                  {statusMsg && <div className="status-message" style={{ marginTop: '8px', color: '#64748b', fontSize: '12px' }}>{statusMsg}</div>}
                 </section>
 
                 {analyzedMsg && (
