@@ -401,13 +401,26 @@ function App() {
   const handleAnalyze = async (e) => {
     e.preventDefault();
     if (!slackUrl.trim()) return;
+
+    // 클라이언트 사전 URL 형식 검사
+    const trimmedUrl = slackUrl.trim();
+    const isValidSlackUrl = (
+      /slack\.com\/archives\/[A-Z0-9]+\/[pf]\d+/i.test(trimmedUrl) ||
+      /slack\.com\/files(?:-pri)?\/[^\s]+/i.test(trimmedUrl)
+    );
+    if (!isValidSlackUrl) {
+      setStatusMsg('⛔ 지원하지 않는 링크 형식입니다.\n슬랙 메시지 링크(링크 복사) 또는 파일/이미지 링크(파일 링크 복사)를 사용해 주세요.');
+      return;
+    }
+
     setLoading(true);
     setStatusMsg('');
 
     try {
-      const resData = await SlackApi.analyzeSlackUrl(slackUrl.trim());
+      const resData = await SlackApi.analyzeSlackUrl(trimmedUrl);
       const msg = resData.message;
       setAnalyzedMsg(msg);
+      setStatusMsg('');
       setUnreactedUsers((msg.unreactedUsers || []).map(normalizeUser));
       
       if (resData.customEmojis || msg.customEmojis) {
@@ -418,19 +431,33 @@ function App() {
         setActiveEmojiGroup(msg.reactions[0]);
       }
     } catch (err) {
-      setStatusMsg(`⚠️ ${err.message} (샘플 데이터 모드로 전환되었습니다)`);
-      const fallbackMsg = {
-        user: FALLBACK_USERS[0],
-        ts: Date.now() / 1000,
-        text: '슬랙 메시지 분석 완료 (샘플 데이터)',
-        reactions: [
-          { name: 'check', count: 5, users: FALLBACK_USERS.slice(0, 5) },
-          { name: 'tada', count: 3, users: FALLBACK_USERS.slice(2, 5) },
-          { name: 'fire', count: 2, users: FALLBACK_USERS.slice(0, 2) }
-        ]
-      };
-      setAnalyzedMsg(fallbackMsg);
-      setActiveEmojiGroup(fallbackMsg.reactions[0]);
+      const errMsg = err.message || '';
+      // 링크 형식 관련 서버 에러도 샘플 없이 표시
+      const isFormatError = (
+        errMsg.includes('형식') ||
+        errMsg.includes('file_not_found') ||
+        errMsg.includes('channel_not_found') ||
+        errMsg.includes('message_not_found')
+      );
+      if (isFormatError) {
+        setStatusMsg(`⛔ ${errMsg}`);
+        setAnalyzedMsg(null);
+      } else {
+        // 서버/인증/네트워크 오류 → 샘플 데이터로 전환
+        setStatusMsg(`⚠️ 서버 연결 실패: ${errMsg}\n(샘플 데이터 모드로 전환되었습니다)`);
+        const fallbackMsg = {
+          user: FALLBACK_USERS[0],
+          ts: Date.now() / 1000,
+          text: '슬랙 메시지 분석 완료 (샘플 데이터)',
+          reactions: [
+            { name: 'check', count: 5, users: FALLBACK_USERS.slice(0, 5) },
+            { name: 'tada', count: 3, users: FALLBACK_USERS.slice(2, 5) },
+            { name: 'fire', count: 2, users: FALLBACK_USERS.slice(0, 2) }
+          ]
+        };
+        setAnalyzedMsg(fallbackMsg);
+        setActiveEmojiGroup(fallbackMsg.reactions[0]);
+      }
     } finally {
       setLoading(false);
     }
@@ -791,7 +818,19 @@ function App() {
                       <span className="btn-text">{loading ? '분석 중...' : '이모지 가져오기'}</span>
                     </button>
                   </form>
-                  {statusMsg && <div className="status-message" style={{ marginTop: '8px', color: '#64748b', fontSize: '12px' }}>{statusMsg}</div>}
+                  {statusMsg && (
+                    <div className="status-message" style={{
+                      marginTop: '8px',
+                      fontSize: '12px',
+                      whiteSpace: 'pre-line',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      background: statusMsg.startsWith('⛔') ? '#fef2f2' : '#fffbeb',
+                      color: statusMsg.startsWith('⛔') ? '#dc2626' : '#92400e',
+                      border: `1px solid ${statusMsg.startsWith('⛔') ? '#fecaca' : '#fde68a'}`,
+                      fontWeight: 500
+                    }}>{statusMsg}</div>
+                  )}
                 </section>
 
                 {analyzedMsg && (
