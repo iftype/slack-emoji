@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Emoji & Person Centric Analysis v52.0.0)
+// Slack Meadow - Complete React 18 Application Component (Chronological Order & Clean Emoji v54.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -8,29 +8,34 @@ const EMOJI_MAP = {
   'six': '6️⃣', 'seven': '7️⃣', 'eight': '8️⃣', 'nine': '9️⃣', 'zero': '0️⃣',
   'keycap_ten': '🔟', '+1': '👍', '-1': '👎', 'thumbsup': '👍', 'thumbsdown': '👎',
   'heart': '❤️', 'tada': '🎉', 'fire': '🔥', 'smile': '😄', 'check': '✅',
-  'raising_hand': '🙋', 'eyes': '👀', 'rocket': '🚀', '100': '💯'
+  'raising_hand': '🙋', 'eyes': '👀', 'rocket': '🚀', '100': '💯',
+  'clap': '👏', 'pray': '🙏', 'party_blob': '🥳', 'blob_cheer': '🎉', 'zzang': '👍'
 };
 
 function renderEmojiIcon(name, customCache = {}) {
   if (!name) return '😃';
-  const lower = name.toLowerCase();
-  if (customCache[lower]) {
-    return `<img src="${customCache[lower]}" alt=":${name}:" class="custom-emoji-img" style="width:18px;height:18px;vertical-align:middle;">`;
+  const cleanName = name.replace(/^:+|:+$/g, '').trim().toLowerCase();
+  if (!cleanName) return '😃';
+
+  if (customCache[cleanName]) {
+    return `<img src="${customCache[cleanName]}" alt=":${cleanName}:" class="custom-emoji-img" style="width:20px;height:20px;vertical-align:middle;border-radius:4px;display:inline-block;">`;
   }
-  if (EMOJI_MAP[lower]) return EMOJI_MAP[lower];
+  if (EMOJI_MAP[cleanName]) return EMOJI_MAP[cleanName];
   if (/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(name)) return name;
-  return `:${name}:`;
+
+  return `<span class="custom-emoji-pill" style="background:#e0e7ff;color:#4338ca;padding:2px 6px;border-radius:6px;font-size:11px;font-weight:700;display:inline-block;vertical-align:middle;line-height:1.2;">:${cleanName}:</span>`;
 }
 
 function parseTextEmojis(text, customCache = {}) {
   if (!text) return '';
   let parsed = text;
   Object.keys(customCache).forEach(name => {
-    const regex = new RegExp(`:${name}:`, 'g');
-    parsed = parsed.replace(regex, `<img src="${customCache[name]}" alt=":${name}:" class="custom-emoji-img" style="width:18px;height:18px;vertical-align:middle;">`);
+    const cleanName = name.replace(/^:+|:+$/g, '').toLowerCase();
+    const regex = new RegExp(`:${cleanName}:`, 'gi');
+    parsed = parsed.replace(regex, `<img src="${customCache[name]}" alt=":${cleanName}:" class="custom-emoji-img" style="width:20px;height:20px;vertical-align:middle;border-radius:4px;display:inline-block;">`);
   });
   Object.keys(EMOJI_MAP).forEach(name => {
-    const regex = new RegExp(`:${name}:`, 'g');
+    const regex = new RegExp(`:${name}:`, 'gi');
     parsed = parsed.replace(regex, EMOJI_MAP[name]);
   });
   return parsed;
@@ -232,7 +237,7 @@ function App() {
     return Array.from(runnerMap.values());
   };
 
-  // 🎯 사람(유저) 기준 이모지 반응 집계 함수 (Person-Centric Aggregator)
+  // 🎯 사람(유저) 기준 이모지 반응 집계 (슬랙 반응 시각 순서 보존)
   const getUserCentricAnalysis = () => {
     if (!analyzedMsg || !analyzedMsg.reactions) return [];
     const userMap = new Map();
@@ -321,29 +326,29 @@ function App() {
     }
   };
 
-  // 🎯 기능 1: 특정 이모지 반응자 명단 복사 (Emoji-Centric Copy)
+  // 특정 이모지 반응자 명단 복사 (누른 순서 보존)
   const handleCopyEmojiUsers = (emojiGroup) => {
     if (!emojiGroup || !emojiGroup.users || emojiGroup.users.length === 0) return;
-    const names = emojiGroup.users.map(getUserDisplayName).join(', ');
-    const text = `:[${emojiGroup.name}]: 이모지 반응자 (${emojiGroup.users.length}명)\n${names}`;
+    const names = emojiGroup.users.map((u, i) => `${i + 1}. ${getUserDisplayName(u)}`).join('\n');
+    const text = `:[${emojiGroup.name}]: 이모지 반응자 (${emojiGroup.users.length}명 - 누른 순서)\n${names}`;
     navigator.clipboard.writeText(text);
-    alert(`:${emojiGroup.name}: 이모지 반응자 ${emojiGroup.users.length}명의 명단이 복사되었습니다!`);
+    alert(`:${emojiGroup.name}: 이모지 반응자 ${emojiGroup.users.length}명의 명단(누른 순서)이 복사되었습니다!`);
   };
 
-  // 🎯 기능 2: 사람 기준 이모지 현황 전체 복사 (Person-Centric Copy)
+  // 사람 기준 이모지 현황 전체 복사
   const handleCopyPersonCentricAnalysis = () => {
     const userAnalysis = getUserCentricAnalysis();
     if (userAnalysis.length === 0) return;
-    const lines = userAnalysis.map(item => {
+    const lines = userAnalysis.map((item, i) => {
       const emojiStr = item.emojis.map(e => `:${e}:`).join(' ');
-      return `• ${item.name} : ${emojiStr}`;
+      return `${i + 1}. ${item.name} : ${emojiStr}`;
     });
     const resultText = `[슬랙 이모지 반응 참여 유저 현황 (총 ${userAnalysis.length}명)]\n` + lines.join('\n');
     navigator.clipboard.writeText(resultText);
     alert(`총 ${userAnalysis.length}명의 사람 기준 이모지 반응 현황이 복사되었습니다!`);
   };
 
-  // 사람 기준 참여 유저 이름만 복사 (스페이스 구분)
+  // 사람 기준 참여 유저 이름만 복사 (누른 순서)
   const handleCopyUserNamesSpaced = () => {
     const userAnalysis = getUserCentricAnalysis();
     if (userAnalysis.length === 0) return;
@@ -352,7 +357,7 @@ function App() {
     alert(`참여 유저 ${userAnalysis.length}명의 이름이 복사되었습니다!`);
   };
 
-  // [추첨 명단에 추가 ➡️] 클릭 -> Slide 2 (명단 확인 페이지)로 이동
+  // 🎯 [추첨 명단에 추가 ➡️] 클릭 -> 슬랙 반응 순서 100% 보존하여 명단 등록
   const handleAddToDrawList = () => {
     let targetUsers = [];
     let emojiName = 'check';
@@ -371,7 +376,7 @@ function App() {
       messageLink: slackUrl.trim() || 'Emoji Group',
       messageText: analyzedMsg ? analyzedMsg.text : '',
       emoji: emojiName,
-      users: shuffleArray(targetUsers)
+      users: [...targetUsers] // 🎯 슬랙 반응 순서 100% 유지!
     };
 
     setFeedbacks(prev => [...prev, group]);
@@ -389,7 +394,7 @@ function App() {
       messageLink: slackUrl.trim() || 'Unreacted Group',
       messageText: '',
       emoji: '🚨 미반응자',
-      users: shuffleArray(targetUsers)
+      users: [...targetUsers]
     };
     setFeedbacks(prev => [...prev, group]);
     setBottomSheetCollapsed(false);
@@ -414,7 +419,7 @@ function App() {
       messageLink: slackUrl.trim() || 'Channel Group',
       messageText: '',
       emoji: `🌐 채널 전체 (${uniqueUserMap.size}명)`,
-      users: shuffleArray(Array.from(uniqueUserMap.values()))
+      users: Array.from(uniqueUserMap.values())
     };
     setFeedbacks(prev => [...prev, group]);
     setBottomSheetCollapsed(false);
@@ -425,7 +430,7 @@ function App() {
     }, 50);
   };
 
-  // 🎰 룰렛 추첨 실행기
+  // 🎯 요구사항 1: 룰렛 추첨 돌릴 때 절대 첫 번째 분석 페이지(Slide 1)로 슬라이딩하지 않도록 개선!
   const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
@@ -436,11 +441,9 @@ function App() {
     }
 
     const allRunners = getAllRunners(sourceFeedbacks).length > 0 ? getAllRunners(sourceFeedbacks) : activeRunners;
-    setBottomSheetCollapsed(false);
-
-    if (!keepSlide) {
-      setCurrentSlide(0);
-    }
+    
+    // 🎯 추첨 돌릴 때 바텀시트를 살짝 접어서 상단 룰렛 뷰포트가 잘 보이도록 집중 연출! (처음 페이지로 이동 안 함!)
+    setBottomSheetCollapsed(true);
 
     if (gameMode === 'podium') {
       setIsRolling(true);
@@ -470,6 +473,7 @@ function App() {
         });
       });
 
+      // 🎯 2.4s 회전 완료 시 바텀시트를 다시 열며 결과 슬라이드(Slide 3)로 바로 이동!
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText(`🎉 [${getUserDisplayName(winner)}] 님 당첨!`);
@@ -487,17 +491,14 @@ function App() {
           users: f.users.map(u => (u.id === winner.id || getUserDisplayName(u) === getUserDisplayName(winner)) ? { ...u, done: true } : u)
         })));
 
-        if (!keepSlide) {
-          setTimeout(() => {
-            setCurrentSlide(2);
-          }, 600);
-        } else {
-          setTimeout(() => {
-            if (rankingScrollRef.current) {
-              rankingScrollRef.current.scrollTop = rankingScrollRef.current.scrollHeight;
-            }
-          }, 100);
-        }
+        setBottomSheetCollapsed(false);
+        setCurrentSlide(2); // 결과 페이지(Slide 3)로 이동!
+
+        setTimeout(() => {
+          if (rankingScrollRef.current) {
+            rankingScrollRef.current.scrollTop = rankingScrollRef.current.scrollHeight;
+          }
+        }, 100);
       }, SPIN_MS);
 
     } else {
@@ -518,6 +519,7 @@ function App() {
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText('👥 무작위 조 구성 완료!');
+        setBottomSheetCollapsed(false);
         setCurrentSlide(2);
       }, 900);
     }
@@ -738,10 +740,9 @@ function App() {
                             <div className="emoji-detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span className="emoji-badge" dangerouslySetInnerHTML={{ __html: renderEmojiIcon(activeEmojiGroup.name, customEmojis) }}></span>
-                                <span className="count-label" style={{ fontWeight: 700, fontSize: '13px', color: '#334155' }}>{activeEmojiGroup.users ? activeEmojiGroup.users.length : 0}명</span>
+                                <span className="count-label" style={{ fontWeight: 700, fontSize: '13px', color: '#334155' }}>{activeEmojiGroup.users ? activeEmojiGroup.users.length : 0}명 (반응 순서)</span>
                               </div>
                               <div style={{ display: 'flex', gap: '4px' }}>
-                                {/* 🎯 기능 1: 이 이모지 반응자 명단 복사 버튼 */}
                                 <button type="button" className="btn-xs-green" onClick={() => handleCopyEmojiUsers(activeEmojiGroup)} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
                                   📋 명단 복사
                                 </button>
@@ -753,6 +754,7 @@ function App() {
                             <div className="detail-user-list">
                               {(activeEmojiGroup.users || []).map((u, i) => (
                                 <div key={i} className="user-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#ffffff', border: '1px solid #cbd5e1', padding: '3px 8px', borderRadius: '12px', margin: '2px', fontSize: '12px' }}>
+                                  <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>{i + 1}.</span>
                                   <img src={u.avatar || 'https://via.placeholder.com/20'} style={{ width: '18px', height: '18px', borderRadius: '50%' }} alt="" />
                                   <span>{getUserDisplayName(u)}</span>
                                 </div>
@@ -785,7 +787,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* 🎯 기능 2: 사람 기준 이모지 반응 집계 분석 패널 (Person-Centric Analysis) */}
+                    {/* 🎯 사람 기준 이모지 반응 집계 분석 패널 */}
                     <div className="user-analysis-section" style={{ marginTop: '14px' }}>
                       <button type="button" className="btn-secondary-outline" onClick={() => setShowUserAnalysis(!showUserAnalysis)} style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600 }}>
                         📊 {showUserAnalysis ? '사람 기준 이모지 현황 닫기 ▲' : `📊 사람 기준 이모지 반응 목록 보기 (${userCentricList.length}명) ▼`}
@@ -794,7 +796,7 @@ function App() {
                       {showUserAnalysis && (
                         <div className="user-analysis-panel" style={{ marginTop: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px' }}>
                           <div className="analysis-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
-                            <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>👥 참여 유저 총 {userCentricList.length}명</span>
+                            <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>👥 참여 유저 총 {userCentricList.length}명 (반응 순서)</span>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <button type="button" className="btn-xs-green" onClick={handleCopyPersonCentricAnalysis} style={{ background: '#059669', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
                                 📋 전체 현황 복사
@@ -809,6 +811,7 @@ function App() {
                             {userCentricList.map((item, idx) => (
                               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #e2e8f0', fontSize: '12px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, minWidth: '16px' }}>{idx + 1}.</span>
                                   <img src={item.user.avatar || 'https://via.placeholder.com/20'} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="" />
                                   <span style={{ fontWeight: 600, color: '#1e293b' }}>{item.name}</span>
                                 </div>
@@ -901,7 +904,7 @@ function App() {
                           <div className="group-users" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                             {(f.users || []).map((u, i) => (
                               <span key={i} className="user-tag" style={{ fontSize: '12px', background: '#f1f5f9', color: '#334155', padding: '3px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 500, opacity: u.done ? 0.4 : 1, textDecoration: u.done ? 'line-through' : 'none' }}>
-                                {getUserDisplayName(u)}
+                                {i + 1}. {getUserDisplayName(u)}
                               </span>
                             ))}
                           </div>
