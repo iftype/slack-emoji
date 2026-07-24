@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (100% Seamless Auto Clipboard v66.0.0)
+// Slack Meadow - Complete React 18 Application Component (Explicit Paste & Clear Button v68.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -234,22 +234,7 @@ function App() {
   const slide2Ref = useRef(null);
   const rankingScrollRef = useRef(null);
 
-  // 🎯 100% 완전 자동 클립보드 센서 (사용자 클릭/터치 없이도 클립보드의 슬랙링크 감지)
-  const autoCheckClipboard = async () => {
-    try {
-      if (navigator.clipboard && navigator.clipboard.readText) {
-        const text = await navigator.clipboard.readText();
-        if (text && text.includes('slack.com/archives/')) {
-          const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
-          if (match && match[0]) {
-            setSlackUrl(match[0]);
-          }
-        }
-      }
-    } catch (e) {}
-  };
-
-  // 🍀 접속, 화면 탭 전환, 첫 화면 터치 시 슬랙링크 자동 붙여넣기 구동
+  // 🍀 접속 시 서버 커스텀 이모지 로드
   useEffect(() => {
     SlackApi.fetchCustomEmojis().then(emojis => {
       if (emojis && Object.keys(emojis).length > 0) {
@@ -257,24 +242,6 @@ function App() {
       }
     });
     setReelCards([]);
-    
-    // 1. 즉시 자동 클립보드 읽기 시도
-    autoCheckClipboard();
-
-    // 2. 모바일/데스크톱 탭 전환 및 화면 첫 클릭/터치 시 100% 자동 감지
-    const handleTrigger = () => autoCheckClipboard();
-    window.addEventListener('focus', handleTrigger);
-    window.addEventListener('touchstart', handleTrigger, { passive: true });
-    window.addEventListener('pointerdown', handleTrigger, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') autoCheckClipboard();
-    });
-
-    return () => {
-      window.removeEventListener('focus', handleTrigger);
-      window.removeEventListener('touchstart', handleTrigger);
-      window.removeEventListener('pointerdown', handleTrigger);
-    };
   }, []);
 
   // Compute All Runners
@@ -361,6 +328,34 @@ function App() {
       lastTargetYRef.current = 0;
     }
   }, [feedbacks, isRolling, pickedWinners.length]);
+
+  // 🎯 모바일/데스크톱 100% 호환 클립보드 붙여넣기 & 지우기 버튼 핸들러
+  const handlePasteOrClear = async () => {
+    if (slackUrl) {
+      setSlackUrl('');
+      return;
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
+          if (match && match[0]) {
+            setSlackUrl(match[0]);
+          } else {
+            setSlackUrl(text);
+          }
+        } else {
+          alert('클립보드에 복사된 내용이 없습니다.');
+        }
+      } else {
+        alert('클립보드 읽기 기능이 지원되지 않는 브라우저입니다. 직접 붙여넣어 주세요.');
+      }
+    } catch (e) {
+      alert('클립보드 읽기 권한이 허용되지 않았습니다. 직접 붙여넣기 해주세요.');
+    }
+  };
 
   // Form Submission
   const handleAnalyze = async (e) => {
@@ -740,29 +735,18 @@ function App() {
                 <section className="panel-card input-card">
                   <h3>슬랙 링크 분석</h3>
                   <form onSubmit={handleAnalyze}>
-                    <div className="form-group input-with-btn" style={{ position: 'relative' }}>
+                    <div className="form-group input-with-btn">
                       <input
                         type="url"
                         value={slackUrl}
                         onChange={(e) => setSlackUrl(e.target.value)}
-                        placeholder="슬랙 메시지 링크 입력 (클립보드 복사 시 자동 채움)..."
+                        placeholder="슬랙 메시지 링크 입력..."
                         required
-                        style={{ paddingRight: slackUrl ? '36px' : '14px' }}
                       />
-                      {/* 🎯 붙여넣기 버튼 제거 후, 값이 있을 때 깔끔한 ❌ Clear 아이콘 표시 */}
-                      {slackUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setSlackUrl('')}
-                          style={{
-                            position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
-                            background: 'none', border: 'none', color: '#94a3b8', fontSize: '14px', cursor: 'pointer', padding: '4px'
-                          }}
-                          title="입력 내용 지우기"
-                        >
-                          ❌
-                        </button>
-                      )}
+                      {/* 🎯 모바일/데스크톱 모두 작동하는 명확한 붙여넣기/지우기 버튼 */}
+                      <button type="button" className="btn-paste-clip" onClick={handlePasteOrClear}>
+                        {slackUrl ? '❌ 지우기' : '📋 붙여넣기'}
+                      </button>
                     </div>
                     <button type="submit" className="btn-primary" disabled={loading}>
                       <span className="btn-text">{loading ? '분석 중...' : '이모지 가져오기'}</span>
