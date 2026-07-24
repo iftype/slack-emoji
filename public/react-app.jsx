@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Precision Reel & Clean UI v48.0.0)
+// Slack Meadow - Complete React 18 Application Component (Zero-Duplicate Winner & Reel System v50.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -76,39 +76,42 @@ function shuffleArray(arr) {
   return shuffled;
 }
 
-// 🎯 중복 이름 이격 배치 릴 생성기 (Strict Unique Distance Reel Builder)
+// 🎯 중복 이름 이격 배치 릴 생성기 (Strict Gap Reel Builder)
 function buildCleanReelList(runners, winner, targetIndex = 18) {
   if (!runners || runners.length === 0) return [];
   
   const runnerMap = new Map();
   runners.forEach(u => {
     const norm = normalizeUser(u);
+    const name = getUserDisplayName(norm);
     if (norm.id && !runnerMap.has(norm.id)) {
-      runnerMap.set(norm.id, norm);
+      runnerMap.set(norm.id, { ...norm, displayName: name });
     }
   });
   const uniqueRunners = Array.from(runnerMap.values());
   const totalCards = 30;
   const reel = [];
 
+  let pool = [...uniqueRunners];
   for (let i = 0; i < totalCards; i++) {
-    let candidates = uniqueRunners.filter(u => {
+    if (pool.length === 0) {
+      pool = shuffleArray([...uniqueRunners]);
+    }
+    
+    let pickIdx = pool.findIndex(u => {
       const recent = reel.slice(-3);
-      return !recent.some(r => r.id === u.id);
+      return !recent.some(r => r.id === u.id || r.displayName === u.displayName);
     });
 
-    if (candidates.length === 0) {
-      candidates = uniqueRunners.filter(u => reel.length === 0 || reel[reel.length - 1].id !== u.id);
-    }
-    if (candidates.length === 0) {
-      candidates = uniqueRunners;
-    }
+    if (pickIdx === -1) pickIdx = 0;
 
-    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    const picked = pool.splice(pickIdx, 1)[0];
     reel.push({ ...picked });
   }
 
-  reel[targetIndex] = { ...normalizeUser(winner), done: false, isTarget: true };
+  const normWinner = normalizeUser(winner);
+  reel[targetIndex] = { ...normWinner, done: false, isTarget: true };
+
   return reel;
 }
 
@@ -160,7 +163,7 @@ function App() {
   const [pickedWinners, setPickedWinners] = useState([]);
   const [groupTeams, setGroupTeams] = useState(null);
 
-  // Game Mode & Stepper (조 짜기 모드에서만 사용)
+  // Game Mode & Stepper (조 짜기 전용)
   const [gameMode, setGameMode] = useState('podium'); // 'podium' | 'group'
   const [teamCount, setTeamCount] = useState(2);
 
@@ -187,7 +190,7 @@ function App() {
     setReelCards([]);
   }, []);
 
-  // Compute Active / All Runners
+  // Compute All Runners
   const getAllRunners = (sourceFeedbacks = null) => {
     const target = sourceFeedbacks || feedbacks;
     const runnerMap = new Map();
@@ -202,14 +205,27 @@ function App() {
     return Array.from(runnerMap.values());
   };
 
+  // 🎯 이미 당첨된 사람(ID & 이름)을 100% 완벽 제외하는 미당첨자 추출기 (Zero-Duplicate Winner Guarantee)
   const getUniqueActiveRunners = (sourceFeedbacks = null) => {
     const target = sourceFeedbacks || feedbacks;
+    const pickedIds = new Set(pickedWinners.map(w => w.id));
+    const pickedNames = new Set(pickedWinners.map(getUserDisplayName));
+
     const runnerMap = new Map();
     target.forEach(f => {
       if (f && Array.isArray(f.users)) {
         f.users.forEach(rawU => {
           const u = normalizeUser(rawU);
-          if (u.id && !u.done && !runnerMap.has(u.id)) runnerMap.set(u.id, u);
+          const displayName = getUserDisplayName(u);
+          if (
+            u.id &&
+            !u.done &&
+            !pickedIds.has(u.id) &&
+            !pickedNames.has(displayName) &&
+            !runnerMap.has(u.id)
+          ) {
+            runnerMap.set(u.id, u);
+          }
         });
       }
     });
@@ -282,7 +298,7 @@ function App() {
     }
   };
 
-  // 🎯 [추첨 명단에 추가 ➡️] 클릭 시 바로 추첨하지 않고 명단 관리 2단계(Slide 1)로 이동!
+  // [추첨 명단에 추가 ➡️] 클릭 -> Slide 2 (명단 확인 페이지)로 이동
   const handleAddToDrawList = () => {
     let targetUsers = [];
     let emojiName = 'check';
@@ -355,21 +371,14 @@ function App() {
     }, 50);
   };
 
-  // 🎯 룰렛 감속 멈춤 및 정밀 오프셋 100% 보정 회전기
+  // 🎰 중복 당첨 0% 보장 룰렛 추첨 엔진
   const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
 
     if (activeRunners.length === 0) {
-      const fallbackGroup = {
-        messageLink: 'Auto Group',
-        messageText: '',
-        emoji: 'check',
-        users: shuffleArray(FALLBACK_USERS.map(normalizeUser))
-      };
-      sourceFeedbacks.push(fallbackGroup);
-      setFeedbacks([...sourceFeedbacks]);
-      activeRunners = fallbackGroup.users;
+      alert('모든 유저가 이미 추첨되었습니다!');
+      return;
     }
 
     const allRunners = getAllRunners(sourceFeedbacks).length > 0 ? getAllRunners(sourceFeedbacks) : activeRunners;
@@ -384,19 +393,19 @@ function App() {
       setShowCommentary(true);
       setCommentaryText('🎰 룰렛 돌리는 중... 틱틱틱!');
 
-      // 1. 무작위 1명 당첨자 선정
+      // 1. 미당첨 유저 중 1명 무작위 추첨
       const winnerIndex = Math.floor(Math.random() * activeRunners.length);
       const winner = activeRunners[winnerIndex];
 
-      // 2. 인접 중복 방지 엄격 릴 생성 (targetIndex = 18)
+      // 2. 인접 중복 없는 깔끔한 릴 배치 생성 (targetIndex = 18)
       const targetIndex = 18;
       const reelList = buildCleanReelList(allRunners, winner, targetIndex);
 
       setReelCards(reelList);
       setTransitionStyle('none');
-      setReelY(0); // 0px에서 항상 출발하여 100% 매끄러운 2.4s 회전 실행!
+      setReelY(0);
 
-      // 3. 160px 중앙 핏 오프셋 계산 (top: 53px 세팅 기준: translateY(-(targetIndex * 54)))
+      // 3. 중앙 핏 오프셋 계산 (top: 53px 세팅)
       const CARD_HEIGHT = 54;
       const newTargetY = -(targetIndex * CARD_HEIGHT);
       lastTargetYRef.current = newTargetY;
@@ -410,7 +419,7 @@ function App() {
         });
       });
 
-      // 4. 감속 멈춤 애니메이션이 딱 마치는 2400ms 타이밍에 당첨자 핏 연출!
+      // 4. 감속 멈춤 2400ms 타이밍 동기화
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText(`🎉 [${getUserDisplayName(winner)}] 님 당첨!`);
@@ -422,10 +431,11 @@ function App() {
           return card;
         }));
 
+        // 🎯 당첨 명단 및 done 플래그 업데이트 (중복 당첨 100% 방지)
         setPickedWinners(prev => [...prev, winner]);
         setFeedbacks(prevFeedbacks => prevFeedbacks.map(f => ({
           ...f,
-          users: f.users.map(u => u.id === winner.id ? { ...u, done: true } : u)
+          users: f.users.map(u => (u.id === winner.id || getUserDisplayName(u) === getUserDisplayName(winner)) ? { ...u, done: true } : u)
         })));
 
         if (!keepSlide) {
@@ -442,7 +452,7 @@ function App() {
       }, SPIN_MS);
 
     } else {
-      // 🎴 조 짜기 (팀 나누기) 모드 구동
+      // 🎴 조 짜기 (팀 나누기) 모드
       setIsRolling(true);
       setShowCommentary(true);
       setCommentaryText('👥 무작위 조 구성 중...');
@@ -490,7 +500,7 @@ function App() {
     }
   };
 
-  // 🎯 홈으로 가기 핸들러
+  // 🎯 홈으로 가기 핸들러 (모든 상태 완전 리셋)
   const handleGoHome = () => {
     setPickedWinners([]);
     setGroupTeams(null);
@@ -775,7 +785,6 @@ function App() {
                     </label>
                   </div>
 
-                  {/* 🎯 요구사항 2: 🏆 무작위 추첨 모드에서는 1명씩 당첨자를 순차 추첨하므로 당첨 인원수 설정 제거! 👥 조 짜기 모드에서만 조 개수 설정 표출 */}
                   {gameMode === 'group' && (
                     <div className="mode-config-row">
                       <div className="config-item" id="config-group">
@@ -845,7 +854,7 @@ function App() {
                             <img src={w.avatar || 'https://via.placeholder.com/44'} className="winner-avatar" alt="" />
                             <div className="winner-info">
                               <div className="name">{getUserDisplayName(w)}</div>
-                              <div style={{ fontSize: '12px', color: '#64748b' }}>🎉 축하합니다! (자동 중복제외 적용)</div>
+                              <div style={{ fontSize: '12px', color: '#64748b' }}>🎉 축하합니다! (중복제외 100% 적용)</div>
                             </div>
                           </div>
                         ))}
@@ -882,7 +891,7 @@ function App() {
                     >
                       <span className="btn-text">
                         {gameMode === 'podium' 
-                          ? (activeRunners.length > 0 ? `🎰 다음 당첨자 뽑기 (남은 ${activeRunners.length}명)` : '🎉 추첨 완료')
+                          ? (activeRunners.length > 0 ? `🎰 다음 당첨자 뽑기 (남은 ${activeRunners.length}명)` : '🎉 모든 당첨자 추첨 완료!')
                           : '🎴 다시 조 짜기'}
                       </span>
                     </button>
