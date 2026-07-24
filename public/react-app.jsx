@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Persisted Link & Open Bottom Sheet v56.0.0)
+// Slack Meadow - Complete React 18 Application Component (Strict Adjacent Winner Isolation v58.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -81,10 +81,14 @@ function shuffleArray(arr) {
   return shuffled;
 }
 
-// 🎯 중복 없는 릴 카드 생성기
+// 🎯 당첨자 인접 슬롯 동일 인물 중복 원천 차단 릴 생성기 (Strict Adjacent Isolation Reel Builder)
 function buildCleanReelList(runners, winner, targetIndex = 18) {
   if (!runners || runners.length === 0) return [];
   
+  const normWinner = normalizeUser(winner);
+  const winnerName = getUserDisplayName(normWinner);
+  const winnerId = normWinner.id;
+
   const runnerMap = new Map();
   runners.forEach(u => {
     const norm = normalizeUser(u);
@@ -95,27 +99,53 @@ function buildCleanReelList(runners, winner, targetIndex = 18) {
   });
   const uniqueRunners = Array.from(runnerMap.values());
   const totalCards = 30;
-  const reel = [];
+  const reel = new Array(totalCards);
 
-  let pool = [...uniqueRunners];
+  // 1. targetIndex에 당첨자를 먼저 고정
+  reel[targetIndex] = { ...normWinner, done: false, isTarget: true, displayName: winnerName };
+
+  // 2. 다른 슬롯들을 채우되 targetIndex 인접 슬롯(+-2) 및 직전 3개 슬롯 중복 금지
+  let pool = shuffleArray([...uniqueRunners]);
+
   for (let i = 0; i < totalCards; i++) {
+    if (i === targetIndex) continue;
+
     if (pool.length === 0) {
       pool = shuffleArray([...uniqueRunners]);
     }
-    
-    let pickIdx = pool.findIndex(u => {
-      const recent = reel.slice(-3);
-      return !recent.some(r => r.id === u.id || r.displayName === u.displayName);
+
+    let candidateIdx = pool.findIndex(u => {
+      // 직전 3개 카드 중복 금지
+      const recent = [];
+      if (i > 0 && reel[i - 1]) recent.push(reel[i - 1]);
+      if (i > 1 && reel[i - 2]) recent.push(reel[i - 2]);
+      if (i > 2 && reel[i - 3]) recent.push(reel[i - 3]);
+
+      if (recent.some(r => r.id === u.id || r.displayName === u.displayName)) return false;
+
+      // targetIndex와 거리 2 이하인 슬롯에서는 당첨자와 동일한 유저 선택 금지
+      if (Math.abs(i - targetIndex) <= 2) {
+        if (u.id === winnerId || u.displayName === winnerName) return false;
+      }
+
+      return true;
     });
 
-    if (pickIdx === -1) pickIdx = 0;
+    // 완화된 예비 후보 (인원수가 적을 때)
+    if (candidateIdx === -1) {
+      candidateIdx = pool.findIndex(u => {
+        const prevCard = (i > 0 && reel[i - 1]) ? reel[i - 1] : null;
+        if (prevCard && (prevCard.id === u.id || prevCard.displayName === u.displayName)) return false;
+        if (Math.abs(i - targetIndex) <= 1 && (u.id === winnerId || u.displayName === winnerName)) return false;
+        return true;
+      });
+    }
 
-    const picked = pool.splice(pickIdx, 1)[0];
-    reel.push({ ...picked });
+    if (candidateIdx === -1) candidateIdx = 0;
+
+    const picked = pool.splice(candidateIdx, 1)[0];
+    reel[i] = { ...picked };
   }
-
-  const normWinner = normalizeUser(winner);
-  reel[targetIndex] = { ...normWinner, done: false, isTarget: true };
 
   return reel;
 }
@@ -189,7 +219,7 @@ function App() {
   const slide2Ref = useRef(null);
   const rankingScrollRef = useRef(null);
 
-  // 🎯 접속 및 주기적 서버 커스텀 이모지 로드
+  // 🍀 접속 및 서버 커스텀 이모지 로드
   useEffect(() => {
     SlackApi.fetchCustomEmojis().then(emojis => {
       if (emojis && Object.keys(emojis).length > 0) {
@@ -310,7 +340,6 @@ function App() {
       setAnalyzedMsg(msg);
       setUnreactedUsers((msg.unreactedUsers || []).map(normalizeUser));
       
-      // 🎯 서버에서 전달된 커스텀 이모지 맵을 클라이언트 캐시에 즉시 병합!
       if (resData.customEmojis || msg.customEmojis) {
         setCustomEmojis(prev => ({ ...prev, ...(resData.customEmojis || msg.customEmojis || {}) }));
       }
@@ -441,7 +470,7 @@ function App() {
     }, 50);
   };
 
-  // 🎯 요구사항 1: 룰렛 추첨 돌릴 때 바텀시트를 닫거나 억지로 접지 않음!
+  // 🎰 룰렛 추첨 가동
   const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
@@ -452,8 +481,6 @@ function App() {
     }
 
     const allRunners = getAllRunners(sourceFeedbacks).length > 0 ? getAllRunners(sourceFeedbacks) : activeRunners;
-    
-    // 🎯 바텀시트 상태를 억지로 변경하지 않고 현재 상태를 그대로 유지!
 
     if (gameMode === 'podium') {
       setIsRolling(true);
@@ -464,6 +491,7 @@ function App() {
       const winner = activeRunners[winnerIndex];
 
       const targetIndex = 18;
+      // 🎯 당첨자 위치 인접(위아래) 동일인물 절대 중복 차단 릴 생성
       const reelList = buildCleanReelList(allRunners, winner, targetIndex);
 
       setReelCards(reelList);
@@ -483,7 +511,6 @@ function App() {
         });
       });
 
-      // 🎯 2.4s 회전 완료 시 결과 슬라이드(Slide 3)로 이동!
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText(`🎉 [${getUserDisplayName(winner)}] 님 당첨!`);
@@ -558,7 +585,7 @@ function App() {
     }
   };
 
-  // 🎯 요구사항 3: 홈으로 갈 때 분석했던 슬랙 링크(slackUrl)와 분석 결과(analyzedMsg)는 그대로 남겨놓음!
+  // 🎯 홈으로 가기 (슬랙링크 & 분석 결과 유효 유지)
   const handleGoHome = () => {
     setPickedWinners([]);
     setGroupTeams(null);
@@ -792,7 +819,7 @@ function App() {
                       </div>
                     )}
 
-                    {/* 🎯 사람 기준 이모지 반응 집계 분석 패널 */}
+                    {/* 사람 기준 이모지 반응 집계 분석 패널 */}
                     <div className="user-analysis-section" style={{ marginTop: '14px' }}>
                       <button type="button" className="btn-secondary-outline" onClick={() => setShowUserAnalysis(!showUserAnalysis)} style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600 }}>
                         📊 {showUserAnalysis ? '사람 기준 이모지 현황 닫기 ▲' : `📊 사람 기준 이모지 반응 목록 보기 (${userCentricList.length}명) ▼`}
