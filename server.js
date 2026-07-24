@@ -191,7 +191,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // [커스텀 이모지 목록 가져오기 API]
-app.post('/api/emojis', async (req, res) => {
+const handleFetchCustomEmojis = async (req, res) => {
   const token = getServerToken();
   const cookie = getServerCookie();
   if (!token) {
@@ -206,14 +206,18 @@ app.post('/api/emojis', async (req, res) => {
 
     const response = await axios.get('https://slack.com/api/emoji.list', { headers });
     if (response.data.ok) {
-      return res.json({ ok: true, emoji: response.data.emoji || {} });
+      const emojiMap = response.data.emoji || {};
+      return res.json({ ok: true, emojis: emojiMap, emoji: emojiMap });
     } else {
       return res.status(400).json({ ok: false, error: `이모지 리스트 로드 실패: ${response.data.error}` });
     }
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
-});
+};
+
+app.get('/api/emojis', handleFetchCustomEmojis);
+app.post('/api/emojis', handleFetchCustomEmojis);
 
 // [분석 API]
 app.post('/api/analyze', async (req, res) => {
@@ -317,19 +321,25 @@ app.post('/api/analyze', async (req, res) => {
         const unreactedResults = await Promise.all(unreactedPromises);
         unreactedUsers = unreactedResults.filter(Boolean);
       }
-    } catch (mErr) {
-      console.warn('Channel members fetch skipped/failed:', mErr.message);
-    }
+    let customEmojis = {};
+    try {
+      const emojiRes = await axios.get('https://slack.com/api/emoji.list', { headers });
+      if (emojiRes.data.ok) {
+        customEmojis = emojiRes.data.emoji || {};
+      }
+    } catch (e) {}
 
     return res.json({
       ok: true,
+      customEmojis: customEmojis,
       message: {
         text: messageData.text || '',
         user: messageAuthor,
         ts: messageData.ts,
         reactions: analyzedReactions,
         unreactedUsers: unreactedUsers,
-        channel: channelId
+        channel: channelId,
+        customEmojis: customEmojis
       }
     });
 

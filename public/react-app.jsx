@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Chronological Order & Clean Emoji v54.0.0)
+// Slack Meadow - Complete React 18 Application Component (Persisted Link & Open Bottom Sheet v56.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -130,7 +130,7 @@ const SlackApi = {
     try {
       const res = await fetch(`${API_BASE}/api/emojis`);
       const data = await res.json();
-      return (data.ok && data.emojis) ? data.emojis : {};
+      return (data.ok && (data.emojis || data.emoji)) ? (data.emojis || data.emoji) : {};
     } catch (e) {
       return {};
     }
@@ -144,7 +144,7 @@ const SlackApi = {
     });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || '슬랙 메시지를 가져올 수 없습니다.');
-    return data.message;
+    return data;
   }
 };
 
@@ -189,9 +189,13 @@ function App() {
   const slide2Ref = useRef(null);
   const rankingScrollRef = useRef(null);
 
-  // 🍀 접속 시 100% 클린한 빈 룰렛 상태로 시작!
+  // 🎯 접속 및 주기적 서버 커스텀 이모지 로드
   useEffect(() => {
-    SlackApi.fetchCustomEmojis().then(setCustomEmojis);
+    SlackApi.fetchCustomEmojis().then(emojis => {
+      if (emojis && Object.keys(emojis).length > 0) {
+        setCustomEmojis(prev => ({ ...prev, ...emojis }));
+      }
+    });
     setReelCards([]);
   }, []);
 
@@ -237,7 +241,7 @@ function App() {
     return Array.from(runnerMap.values());
   };
 
-  // 🎯 사람(유저) 기준 이모지 반응 집계 (슬랙 반응 시각 순서 보존)
+  // 🎯 사람(유저) 기준 이모지 반응 집계
   const getUserCentricAnalysis = () => {
     if (!analyzedMsg || !analyzedMsg.reactions) return [];
     const userMap = new Map();
@@ -301,9 +305,16 @@ function App() {
     setStatusMsg('');
 
     try {
-      const msg = await SlackApi.analyzeSlackUrl(slackUrl.trim());
+      const resData = await SlackApi.analyzeSlackUrl(slackUrl.trim());
+      const msg = resData.message;
       setAnalyzedMsg(msg);
       setUnreactedUsers((msg.unreactedUsers || []).map(normalizeUser));
+      
+      // 🎯 서버에서 전달된 커스텀 이모지 맵을 클라이언트 캐시에 즉시 병합!
+      if (resData.customEmojis || msg.customEmojis) {
+        setCustomEmojis(prev => ({ ...prev, ...(resData.customEmojis || msg.customEmojis || {}) }));
+      }
+
       if (msg.reactions && msg.reactions.length > 0) {
         setActiveEmojiGroup(msg.reactions[0]);
       }
@@ -326,7 +337,7 @@ function App() {
     }
   };
 
-  // 특정 이모지 반응자 명단 복사 (누른 순서 보존)
+  // 특정 이모지 반응자 명단 복사
   const handleCopyEmojiUsers = (emojiGroup) => {
     if (!emojiGroup || !emojiGroup.users || emojiGroup.users.length === 0) return;
     const names = emojiGroup.users.map((u, i) => `${i + 1}. ${getUserDisplayName(u)}`).join('\n');
@@ -348,7 +359,7 @@ function App() {
     alert(`총 ${userAnalysis.length}명의 사람 기준 이모지 반응 현황이 복사되었습니다!`);
   };
 
-  // 사람 기준 참여 유저 이름만 복사 (누른 순서)
+  // 사람 기준 참여 유저 이름만 복사
   const handleCopyUserNamesSpaced = () => {
     const userAnalysis = getUserCentricAnalysis();
     if (userAnalysis.length === 0) return;
@@ -357,7 +368,7 @@ function App() {
     alert(`참여 유저 ${userAnalysis.length}명의 이름이 복사되었습니다!`);
   };
 
-  // 🎯 [추첨 명단에 추가 ➡️] 클릭 -> 슬랙 반응 순서 100% 보존하여 명단 등록
+  // [추첨 명단에 추가 ➡️] 클릭
   const handleAddToDrawList = () => {
     let targetUsers = [];
     let emojiName = 'check';
@@ -376,7 +387,7 @@ function App() {
       messageLink: slackUrl.trim() || 'Emoji Group',
       messageText: analyzedMsg ? analyzedMsg.text : '',
       emoji: emojiName,
-      users: [...targetUsers] // 🎯 슬랙 반응 순서 100% 유지!
+      users: [...targetUsers]
     };
 
     setFeedbacks(prev => [...prev, group]);
@@ -430,7 +441,7 @@ function App() {
     }, 50);
   };
 
-  // 🎯 요구사항 1: 룰렛 추첨 돌릴 때 절대 첫 번째 분석 페이지(Slide 1)로 슬라이딩하지 않도록 개선!
+  // 🎯 요구사항 1: 룰렛 추첨 돌릴 때 바텀시트를 닫거나 억지로 접지 않음!
   const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
@@ -442,8 +453,7 @@ function App() {
 
     const allRunners = getAllRunners(sourceFeedbacks).length > 0 ? getAllRunners(sourceFeedbacks) : activeRunners;
     
-    // 🎯 추첨 돌릴 때 바텀시트를 살짝 접어서 상단 룰렛 뷰포트가 잘 보이도록 집중 연출! (처음 페이지로 이동 안 함!)
-    setBottomSheetCollapsed(true);
+    // 🎯 바텀시트 상태를 억지로 변경하지 않고 현재 상태를 그대로 유지!
 
     if (gameMode === 'podium') {
       setIsRolling(true);
@@ -473,7 +483,7 @@ function App() {
         });
       });
 
-      // 🎯 2.4s 회전 완료 시 바텀시트를 다시 열며 결과 슬라이드(Slide 3)로 바로 이동!
+      // 🎯 2.4s 회전 완료 시 결과 슬라이드(Slide 3)로 이동!
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText(`🎉 [${getUserDisplayName(winner)}] 님 당첨!`);
@@ -491,8 +501,7 @@ function App() {
           users: f.users.map(u => (u.id === winner.id || getUserDisplayName(u) === getUserDisplayName(winner)) ? { ...u, done: true } : u)
         })));
 
-        setBottomSheetCollapsed(false);
-        setCurrentSlide(2); // 결과 페이지(Slide 3)로 이동!
+        setCurrentSlide(2);
 
         setTimeout(() => {
           if (rankingScrollRef.current) {
@@ -519,7 +528,6 @@ function App() {
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText('👥 무작위 조 구성 완료!');
-        setBottomSheetCollapsed(false);
         setCurrentSlide(2);
       }, 900);
     }
@@ -550,15 +558,12 @@ function App() {
     }
   };
 
-  // 🎯 홈으로 가기 핸들러
+  // 🎯 요구사항 3: 홈으로 갈 때 분석했던 슬랙 링크(slackUrl)와 분석 결과(analyzedMsg)는 그대로 남겨놓음!
   const handleGoHome = () => {
     setPickedWinners([]);
     setGroupTeams(null);
     setFeedbacks([]);
     setReelCards([]);
-    setSlackUrl('');
-    setAnalyzedMsg(null);
-    setUnreactedUsers([]);
     setCurrentSlide(0);
     setBottomSheetCollapsed(false);
     lastTargetYRef.current = 0;
