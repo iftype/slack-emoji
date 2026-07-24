@@ -1,11 +1,10 @@
-// Slack Meadow Main App Controller (Clear Feedback Alerts & User Normalization v26.0.0)
+// Slack Meadow Main App Controller (Zero-Alert & Fail-Safe DOM Engine v27.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
   const getEl = (id) => document.getElementById(id);
 
   // DOM Elements
-  const mainScreen = document.querySelector('.meadow-canvas-full');
   const analyzerForm = getEl('analyzer-form');
   const slackUrlInput = getEl('slack-url');
   const submitBtn = getEl('submit-btn');
@@ -50,7 +49,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const startRaceBtn = getEl('start-race-btn');
   const raceCommentary = getEl('race-commentary');
   const commentaryText = getEl('commentary-text');
-  const btnSkipRace = getEl('btn-skip-race');
 
   const rankingListView = getEl('ranking-list-view');
   const groupRankingView = getEl('group-ranking-view');
@@ -59,7 +57,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnCopyResultFormatted = getEl('btn-copy-result-formatted');
 
   const selectAllEmojis = getEl('select-all-emojis');
-  const selectAllRunnersBtn = getEl('select-all-runners-btn');
   const deleteAllRunnersBtn = getEl('delete-all-runners-btn');
 
   const configPodium = getEl('config-podium');
@@ -92,79 +89,91 @@ document.addEventListener('DOMContentLoaded', async () => {
     return shuffled;
   }
 
-  // 👤 유저 객체 정제 헬퍼 (string 또는 object 형태 100% 정규화)
+  // 👤 유저 객체 100% 철통 정규화 헬퍼 (Crash 예방)
   function normalizeUser(u) {
-    if (!u) return { id: 'unknown', name: '사용자' };
-    if (typeof u === 'string') return { id: u, name: u, real_name: u };
+    if (!u) return { id: 'unknown_' + Math.random(), name: '사용자', real_name: '사용자' };
+    if (typeof u === 'string') return { id: u, name: u, real_name: u, display_name: u };
     return {
-      id: u.id || u.name || 'unknown',
+      id: u.id || u.name || ('usr_' + Math.random()),
       name: u.name || u.id || '사용자',
-      real_name: u.real_name || u.name,
-      display_name: u.display_name || u.real_name,
+      real_name: u.real_name || u.name || '사용자',
+      display_name: u.display_name || u.real_name || u.name || '사용자',
       avatar: u.avatar || '',
       done: !!u.done
     };
   }
 
-  // 🚨 [핵심 헬퍼 함수 - Null Safe & Normalization]
+  // 🚨 [방어막 헬퍼 함수]
   function getAllRunners() {
     const runnerMap = new Map();
-    (currentFeedbacksData || []).forEach(f => {
-      if (f && Array.isArray(f.users)) {
-        f.users.forEach(rawU => {
-          const u = normalizeUser(rawU);
-          if (u.id && !runnerMap.has(u.id)) {
-            runnerMap.set(u.id, u);
-          }
-        });
-      }
-    });
+    try {
+      (currentFeedbacksData || []).forEach(f => {
+        if (f && Array.isArray(f.users)) {
+          f.users.forEach(rawU => {
+            const u = normalizeUser(rawU);
+            if (u.id && !runnerMap.has(u.id)) {
+              runnerMap.set(u.id, u);
+            }
+          });
+        }
+      });
+    } catch (e) {
+      console.error('getAllRunners error:', e);
+    }
     return Array.from(runnerMap.values());
   }
 
   function getUniqueActiveRunners() {
     const runnerMap = new Map();
-    (currentFeedbacksData || []).forEach(f => {
-      if (f && Array.isArray(f.users)) {
-        f.users.forEach(rawU => {
-          const u = normalizeUser(rawU);
-          if (u.id && !u.done && !runnerMap.has(u.id)) {
-            runnerMap.set(u.id, u);
-          }
-        });
-      }
-    });
+    try {
+      (currentFeedbacksData || []).forEach(f => {
+        if (f && Array.isArray(f.users)) {
+          f.users.forEach(rawU => {
+            const u = normalizeUser(rawU);
+            if (u.id && !u.done && !runnerMap.has(u.id)) {
+              runnerMap.set(u.id, u);
+            }
+          });
+        }
+      });
+    } catch (e) {
+      console.error('getUniqueActiveRunners error:', e);
+    }
     return Array.from(runnerMap.values());
   }
 
   function renderRoulettePreview(runners) {
     if (!rouletteReelContainer) return;
-    rouletteReelContainer.style.transition = 'none';
-    rouletteReelContainer.style.transform = 'translateY(0px)';
-    rouletteReelContainer.innerHTML = '';
-    
-    if (!runners || runners.length === 0) {
-      rouletteReelContainer.innerHTML = `
-        <div class="picker-card-2d empty-card">
-          <span class="card-avatar-text">🌱</span>
-          <span class="card-name">명단을 소환해보세요!</span>
+    try {
+      rouletteReelContainer.style.transition = 'none';
+      rouletteReelContainer.style.transform = 'translateY(0px)';
+      rouletteReelContainer.innerHTML = '';
+      
+      if (!runners || runners.length === 0) {
+        rouletteReelContainer.innerHTML = `
+          <div class="picker-card-2d empty-card">
+            <span class="card-avatar-text">🌱</span>
+            <span class="card-name">명단을 소환해보세요!</span>
+          </div>
+        `;
+        return;
+      }
+
+      let cyclicRunners = [];
+      for (let i = 0; i < 5; i++) {
+        const setRunners = [...runners].sort(() => Math.random() - 0.5);
+        cyclicRunners.push(...setRunners);
+      }
+
+      rouletteReelContainer.innerHTML = cyclicRunners.map(u => `
+        <div class="picker-card-2d">
+          <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
+          <span class="card-name">${getUserDisplayName(u)}</span>
         </div>
-      `;
-      return;
+      `).join('');
+    } catch (e) {
+      console.error('renderRoulettePreview error:', e);
     }
-
-    let cyclicRunners = [];
-    for (let i = 0; i < 5; i++) {
-      const setRunners = [...runners].sort(() => Math.random() - 0.5);
-      cyclicRunners.push(...setRunners);
-    }
-
-    rouletteReelContainer.innerHTML = cyclicRunners.map(u => `
-      <div class="picker-card-2d">
-        <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-        <span class="card-name">${getUserDisplayName(u)}</span>
-      </div>
-    `).join('');
   }
 
   function renderFeedbackList(feedbacks) {
@@ -172,46 +181,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     const container = getEl('feedback-list-container');
     if (!container) return;
 
-    if (currentFeedbacksData.length === 0) {
-      container.innerHTML = '<p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
-      if (startRaceBtn) startRaceBtn.classList.add('hidden');
-      renderRoulettePreview([]);
-      return;
-    }
+    try {
+      if (currentFeedbacksData.length === 0) {
+        container.innerHTML = '<p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
+        if (startRaceBtn) startRaceBtn.classList.add('hidden');
+        renderRoulettePreview([]);
+        return;
+      }
 
-    if (startRaceBtn) startRaceBtn.classList.remove('hidden');
-    const uniqueRunners = getUniqueActiveRunners();
-    renderRoulettePreview(uniqueRunners);
+      if (startRaceBtn) startRaceBtn.classList.remove('hidden');
+      const uniqueRunners = getUniqueActiveRunners();
+      renderRoulettePreview(uniqueRunners);
 
-    let html = '';
-    currentFeedbacksData.forEach((f, fIdx) => {
-      const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
-      const userList = (f.users || []).map(normalizeUser);
-      html += `
-        <div class="feedback-group-item" style="background:#f8f9fa;border:1px solid #e4e5e7;border-radius:10px;padding:10px;margin-bottom:8px;">
-          <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
-            <span>${emojiBadge} (${userList.length}명)</span>
-            <button class="btn-danger-xs" data-idx="${fIdx}">삭제</button>
+      let html = '';
+      currentFeedbacksData.forEach((f, fIdx) => {
+        const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
+        const userList = (f.users || []).map(normalizeUser);
+        html += `
+          <div class="feedback-group-item" style="background:#f8f9fa;border:1px solid #e4e5e7;border-radius:10px;padding:10px;margin-bottom:8px;">
+            <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
+              <span>${emojiBadge} (${userList.length}명)</span>
+              <button class="btn-danger-xs" data-idx="${fIdx}">삭제</button>
+            </div>
+            <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
+              ${userList.map(u => `
+                <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${getUserDisplayName(u)}</span>
+              `).join('')}
+            </div>
           </div>
-          <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
-            ${userList.map(u => `
-              <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${getUserDisplayName(u)}</span>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    });
-    container.innerHTML = html;
-
-    container.querySelectorAll('.btn-danger-xs').forEach(btn => {
-      btn?.addEventListener('click', (e) => {
-        const idx = parseInt(e.target.dataset.idx);
-        if (!isNaN(idx)) {
-          currentFeedbacksData.splice(idx, 1);
-          renderFeedbackList(currentFeedbacksData);
-        }
+        `;
       });
-    });
+      container.innerHTML = html;
+
+      container.querySelectorAll('.btn-danger-xs').forEach(btn => {
+        btn?.addEventListener('click', (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          if (!isNaN(idx)) {
+            currentFeedbacksData.splice(idx, 1);
+            renderFeedbackList(currentFeedbacksData);
+          }
+        });
+      });
+    } catch (e) {
+      console.error('renderFeedbackList error:', e);
+    }
   }
 
   // Init Main Screen
@@ -274,14 +287,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
     } catch (e) {
-      alert('클립보드 접근 권한이 없습니다. 직접 붙여넣어주세요.');
+      // clip read failed silently
     }
   });
 
   // 🌐 채널 전체 소환 버튼
   btnSummonChannelAll?.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !currentAnalyzedMessage.channel) {
-      alert('슬랙 링크를 먼저 분석해주시거나 채널 정보가 필요합니다!');
       return;
     }
     
@@ -295,10 +307,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const uniqueChannelUsers = shuffleArray(Array.from(uniqueUserMap.values()));
-    if (uniqueChannelUsers.length === 0) {
-      alert('채널 인원을 불러올 수 없습니다.');
-      return;
-    }
+    if (uniqueChannelUsers.length === 0) return;
 
     const group = {
       messageLink: slackUrlInput ? slackUrlInput.value.trim() : 'Channel Group',
@@ -309,7 +318,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    alert(`🌐 채널 전체 인원 ${uniqueChannelUsers.length}명이 추첨 명단에 추가되었습니다!`);
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
     bottomSheet?.classList.remove('collapsed');
   });
@@ -328,7 +336,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       resultSection?.classList.remove('hidden');
     } catch (err) {
       showError(err.message);
-      alert(`슬랙 링크 분석 실패: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -382,7 +389,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    if (selectAllEmojis) selectAllEmojis.checked = false;
     renderUserAnalysisPanel(msg.reactions || []);
   }
 
@@ -425,15 +431,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentUnreactedUsers.length === 0) return;
     const names = currentUnreactedUsers.map(normalizeUser).map(u => getUserDisplayName(u)).join(' ');
     navigator.clipboard.writeText(names);
-    alert(`미반응자 ${currentUnreactedUsers.length}명의 이름이 복사되었습니다!`);
   });
 
   // 🚨 [이모지 미반응자 추첨 추가 버튼]
   btnSummonUnreacted?.addEventListener('click', () => {
-    if (!currentUnreactedUsers || currentUnreactedUsers.length === 0) {
-      alert('추첨에 추가할 미반응자 유저가 없습니다!');
-      return;
-    }
+    if (!currentUnreactedUsers || currentUnreactedUsers.length === 0) return;
     const shuffled = shuffleArray(currentUnreactedUsers.map(normalizeUser));
     const group = {
       messageLink: slackUrlInput ? slackUrlInput.value.trim() : 'Unreacted Group',
@@ -443,7 +445,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    alert(`🚨 미반응자 ${shuffled.length}명이 추첨 명단에 추가되었습니다!`);
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
     bottomSheet?.classList.remove('collapsed');
   });
@@ -466,19 +467,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🚨 [이모지 명단 추가 버튼 - 명확한 확인 알림 제공!]
+  // 🚨 [이모지 명단 추가 버튼 - alert 팝업 전면 제로화 및 슬라이더 이동]
   addToFeedbackBtn?.addEventListener('click', () => {
-    if (!currentAnalyzedMessage) {
-      alert('슬랙 링크를 먼저 분석해주세요!');
-      return;
-    }
+    if (!currentAnalyzedMessage) return;
     
     if (!activeEmojiGroup && currentAnalyzedMessage.reactions && currentAnalyzedMessage.reactions.length > 0) {
       activeEmojiGroup = currentAnalyzedMessage.reactions[0];
     }
 
     if (!activeEmojiGroup || !activeEmojiGroup.users || activeEmojiGroup.users.length === 0) {
-      alert('추첨 명단으로 추가할 이모지를 선택해주세요!');
       return;
     }
 
@@ -489,12 +486,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       emoji: activeEmojiGroup.name,
       users: shuffledUsers
     };
+
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
     
-    const emojiName = activeEmojiGroup.name;
-    alert(`🎉 :${emojiName}: 이모지 반응자 ${shuffledUsers.length}명이 추첨 명단에 성공적으로 추가되었습니다!`);
-    
+    // 명단 슬라이드 2 (translateX(-33.333%)) 로 시원하게 이동 및 바텀시트 펼치기!
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
     bottomSheet?.classList.remove('collapsed');
   });
@@ -542,10 +538,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    if (activeRunners.length === 0) {
-      alert('추첨 명단에 소환된 유저가 없습니다!\n\n[➕ 추첨하기 명단 추가] 버튼이나 [🌐 채널 전체로 돌리기] 버튼을 눌러 추첨 대상을 소환해주세요!');
-      return;
-    }
+    if (activeRunners.length === 0) return;
 
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(0%)';
     if (bottomSheet) bottomSheet.classList.remove('collapsed');
@@ -653,11 +646,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       const copyText = lines.join('\n');
       navigator.clipboard.writeText(copyText);
-      alert('팀 구성 명단이 클립보드에 복사되었습니다!\n\n' + copyText);
     } else if (pickedWinners.length > 0) {
       const copyText = pickedWinners.map((w, idx) => `${idx + 1}등: ${getUserDisplayName(w)}`).join('\n');
       navigator.clipboard.writeText(copyText);
-      alert('당첨자 명단이 클립보드에 복사되었습니다!');
     }
   });
 
@@ -692,13 +683,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   deleteAllRunnersBtn?.addEventListener('click', async () => {
-    if (confirm('소환된 명단을 모두 삭제하시겠습니까?')) {
-      pickedWinners = [];
-      currentFeedbacksData = [];
-      renderFeedbackList([]);
-      renderRoulettePreview([]);
-      alert('추첨 명단이 완전히 삭제되었습니다.');
-    }
+    pickedWinners = [];
+    currentFeedbacksData = [];
+    renderFeedbackList([]);
+    renderRoulettePreview([]);
   });
 
   function setLoading(loading) {
@@ -752,6 +740,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (runners.length === 0) return;
     const names = runners.map(u => getUserDisplayName(u)).join(' ');
     navigator.clipboard.writeText(names);
-    alert(`명단 ${runners.length}명의 이름이 복사되었습니다!`);
   });
 });
