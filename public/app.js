@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Hardened Local-Fallback Version v20.0.0)
+// Slack Meadow Main App Controller (Hardened Slide-Switching Version v21.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 🌐 채널 전체 소환 버튼 (네트워크 예외 방어 & 무조건 즉시 추가!)
+  // 🌐 채널 전체 소환 버튼
   btnSummonChannelAll?.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !currentAnalyzedMessage.channel) {
       alert('슬랙 링크를 먼저 분석해주시거나 채널 정보가 필요합니다!');
@@ -403,7 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     alert(`미반응자 ${currentUnreactedUsers.length}명의 이름이 복사되었습니다!`);
   });
 
-  // 🚨 [이모지 미반응자 추첨 추가 버튼 100% 정상 작동 방어 코드]
+  // 🚨 [이모지 미반응자 추첨 추가 버튼]
   btnSummonUnreacted?.addEventListener('click', () => {
     if (!currentUnreactedUsers || currentUnreactedUsers.length === 0) {
       alert('추첨에 추가할 미반응자 유저가 없습니다!');
@@ -439,7 +439,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🚨 [추첨 명단 추가 버튼 100% 정상 작동 방어 코드]
+  // 🚨 [이모지 선택 후 추첨 명단 추가 버튼]
   addToFeedbackBtn?.addEventListener('click', () => {
     if (!currentAnalyzedMessage || !activeEmojiGroup) return;
     const shuffledUsers = shuffleArray(activeEmojiGroup.users);
@@ -479,6 +479,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     runSingleLotterySpin();
   });
 
+  // 🚨 [추첨 시작 시 1번 룰렛 슬라이드로 시원하게 전환하며 룰렛 회전!]
   function runSingleLotterySpin() {
     const activeRunners = getUniqueActiveRunners();
     if (activeRunners.length === 0) {
@@ -486,12 +487,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // 🎯 1. 룰렛 화면 (슬라이드 1번, translateX(0%)) 으로 전환 & 바텀시트 열기!
+    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(0%)';
+    if (bottomSheet) bottomSheet.classList.remove('collapsed');
+
     const allRunners = getAllRunners();
     const modeRadio = document.querySelector('input[name="game-mode"]:checked');
     const mode = modeRadio ? modeRadio.value : 'podium';
     const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
 
-    // 🚨 룰렛 돌리기 전 강제 락 해제
+    // 룰렛 돌리기 전 강제 락 해제
     LotteryEngine.isRolling = false;
 
     if (mode === 'podium') {
