@@ -376,9 +376,13 @@ function App() {
       if (navigator.clipboard && navigator.clipboard.readText) {
         const text = await navigator.clipboard.readText();
         if (text) {
-          const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
-          if (match && match[0]) {
-            setSlackUrl(match[0]);
+          // 메시지 링크: /archives/CHANNEL/pTIMESTAMP
+          const msgMatch = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/[pf]\d+/i);
+          // 파일/이미지 링크: /files/USER/FILEID/... 또는 /files-pri/...
+          const fileMatch = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/files(?:-pri)?\/[^\s]+/i);
+          const extracted = (msgMatch && msgMatch[0]) || (fileMatch && fileMatch[0]);
+          if (extracted) {
+            setSlackUrl(extracted);
           } else {
             setSlackUrl(text);
           }
@@ -773,10 +777,10 @@ function App() {
                   <form onSubmit={handleAnalyze}>
                     <div className="form-group input-with-btn">
                       <input
-                        type="url"
+                        type="text"
                         value={slackUrl}
                         onChange={(e) => setSlackUrl(e.target.value)}
-                        placeholder="슬랙 메시지 링크 입력..."
+                        placeholder="슬랙 메시지 or 이미지/파일 링크 입력..."
                         required
                       />
                       <button type="button" className="btn-paste-clip" onClick={handlePasteOrClear}>

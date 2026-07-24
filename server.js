@@ -88,24 +88,34 @@ function saveFeedbacks(feedbacks) {
   }
 }
 
-// 슬랙 URL 파싱 헬퍼
+// 슬랙 URL 파싱 헬퍼 (메시지 링크, 이미지/파일 게시물, 직접 파일 링크 지원)
 function parseSlackUrl(url) {
   try {
-    const regex = /\/archives\/([A-Z0-9]+)\/p(\d+)/;
-    const match = url.match(regex);
-    if (!match) return null;
-    
-    const channelId = match[1];
-    const rawTs = match[2];
-    
-    let timestamp;
-    if (rawTs.length > 10) {
-      timestamp = rawTs.slice(0, 10) + '.' + rawTs.slice(10);
-    } else {
-      timestamp = rawTs;
+    if (!url) return null;
+
+    // 1. /archives/CHANNEL_ID/[pf]?TIMESTAMP (일반 메시지 및 파일/이미지 포스트)
+    const archivesRegex = /\/archives\/([A-Z0-9]+)\/([pf]?)(\d+)/i;
+    const match = url.match(archivesRegex);
+    if (match) {
+      const channelId = match[1];
+      const rawTs = match[3];
+      let timestamp;
+      if (rawTs.length > 10) {
+        timestamp = rawTs.slice(0, 10) + '.' + rawTs.slice(10);
+      } else {
+        timestamp = rawTs;
+      }
+      return { channelId, timestamp, fileId: null };
     }
-    
-    return { channelId, timestamp };
+
+    // 2. Direct Slack File Links (/files/USER/F12345/name or /files-pri/TEAM-F12345/name)
+    const fileRegex = /\/files(?:-pri)?\/[^\/]+\/([A-Z0-9]+)/i;
+    const fileMatch = url.match(fileRegex);
+    if (fileMatch) {
+      return { channelId: null, timestamp: null, fileId: fileMatch[1] };
+    }
+
+    return null;
   } catch (error) {
     return null;
   }
@@ -239,10 +249,8 @@ app.post('/api/analyze', async (req, res) => {
 
   const parsed = parseSlackUrl(url);
   if (!parsed) {
-    return res.status(400).json({ ok: false, error: '유효한 슬랙 메시지 링크 형식이 아닙니다.' });
+    return res.status(400).json({ ok: false, error: '유효한 슬랙 메시지 또는 파일/이미지 링크 형식이 아닙니다.' });
   }
-
-  const { channelId, timestamp } = parsed;
 
   try {
     const headers = { Authorization: `Bearer ${token}` };
@@ -250,13 +258,17 @@ app.post('/api/analyze', async (req, res) => {
       headers['Cookie'] = `d=${cookie}`;
     }
 
+    const params = { full: true };
+    if (parsed.fileId) {
+      params.file = parsed.fileId;
+    } else {
+      params.channel = parsed.channelId;
+      params.timestamp = parsed.timestamp;
+    }
+
     const response = await axios.get('https://slack.com/api/reactions.get', {
       headers,
-      params: {
-        channel: channelId,
-        timestamp: timestamp,
-        full: true
-      }
+      params
     });
 
     if (!response.data.ok) {
@@ -267,12 +279,16 @@ app.post('/api/analyze', async (req, res) => {
         userFriendlyError = '슬랙 인증 세션이 만료되었습니다. 서버 토큰을 확인해 주세요.';
       } else if (slackError === 'channel_not_found') {
         userFriendlyError = '채널을 찾을 수 없거나 접근 권한이 없습니다. (해당 채널에 토큰 계정이 가입되어 있어야 합니다.)';
+      } else if (slackError === 'file_not_found') {
+        userFriendlyError = '해당 파일/이미지를 찾을 수 없거나 접근 권한이 없습니다.';
       }
       
       return res.status(400).json({ ok: false, error: userFriendlyError });
     }
 
-    const messageData = response.data.message;
+    const messageData = response.data.message || response.data.file || {};
+    const reactions = messageData.reactions || [];
+
     const reactions = messageData.reactions || [];
     
     // 고유 사용자 ID 목록 수집
