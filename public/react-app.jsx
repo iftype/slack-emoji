@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (3-Step Sequential Workflow & Home Reset)
+// Slack Meadow - Complete React 18 Application Component (Target-Centered Reel Precision & Sync v44.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -142,6 +142,8 @@ function App() {
   const [reelY, setReelY] = useState(0);
   const [transitionStyle, setTransitionStyle] = useState('none');
   const lastTargetYRef = useRef(0);
+
+  const slide2Ref = useRef(null);
   const rankingScrollRef = useRef(null);
 
   // 🍀 접속 시 100% 클린한 빈 룰렛 상태로 시작!
@@ -179,7 +181,7 @@ function App() {
     return Array.from(runnerMap.values());
   };
 
-  // Preview Reel Update
+  // Preview Reel Update (Avoiding adjacent duplicate names)
   useEffect(() => {
     if (!isRolling) {
       const activeRunners = getUniqueActiveRunners();
@@ -187,8 +189,13 @@ function App() {
         setReelCards([]);
       } else {
         let cyclic = [];
-        for (let i = 0; i < 5; i++) {
-          cyclic.push(...shuffleArray(activeRunners));
+        for (let i = 0; i < 6; i++) {
+          const shuffledSet = shuffleArray(activeRunners);
+          shuffledSet.forEach(u => {
+            if (cyclic.length === 0 || cyclic[cyclic.length - 1].id !== u.id) {
+              cyclic.push(u);
+            }
+          });
         }
         setReelCards(cyclic);
       }
@@ -240,7 +247,7 @@ function App() {
     }
   };
 
-  // 🎯 요구사항 2: [추첨하기] 클릭 시 바로 추첨하는 것이 아니라 2단계(Slide 1: 추첨기 모드 & 명단 관리)로 이동하여 명단을 확인하도록 개선!
+  // 🎯 요구사항 1: [추첨 명단에 추가 ➡️] 클릭 시 바텀시트 2단계 명단 확인 페이지로 넘어가 명단 확인 후 추첨하도록 제어!
   const handleAddToDrawList = () => {
     let targetUsers = [];
     let emojiName = 'check';
@@ -264,7 +271,11 @@ function App() {
 
     setFeedbacks(prev => [...prev, group]);
     setBottomSheetCollapsed(false);
-    setCurrentSlide(1); // 2단계 명단 확인 페이지로 이동!
+    setCurrentSlide(1); // 2단계 명단 확인 페이지로 이동
+
+    setTimeout(() => {
+      if (slide2Ref.current) slide2Ref.current.scrollTop = 0;
+    }, 50);
   };
 
   // Summon Unreacted Users -> 2단계 명단 확인 페이지로 이동
@@ -278,7 +289,11 @@ function App() {
     };
     setFeedbacks(prev => [...prev, group]);
     setBottomSheetCollapsed(false);
-    setCurrentSlide(1); // 2단계 명단 확인 페이지로 이동!
+    setCurrentSlide(1);
+
+    setTimeout(() => {
+      if (slide2Ref.current) slide2Ref.current.scrollTop = 0;
+    }, 50);
   };
 
   // Summon Channel All -> 2단계 명단 확인 페이지로 이동
@@ -300,10 +315,14 @@ function App() {
     };
     setFeedbacks(prev => [...prev, group]);
     setBottomSheetCollapsed(false);
-    setCurrentSlide(1); // 2단계 명단 확인 페이지로 이동!
+    setCurrentSlide(1);
+
+    setTimeout(() => {
+      if (slide2Ref.current) slide2Ref.current.scrollTop = 0;
+    }, 50);
   };
 
-  // 🎰 Roulette / Group Dealer Spin Animation
+  // 🎯 요구사항 2: 룰렛 중복 이름 이격 배치 & 회전 감속 멈춤 100% 동기화 (Perfect Timing Sync)
   const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
@@ -332,26 +351,34 @@ function App() {
       setShowCommentary(true);
       setCommentaryText('🎰 룰렛 돌리는 중... 틱틱틱!');
 
+      // 1. 당첨자 1명 무작위 추첨
       const winnerIndex = Math.floor(Math.random() * activeRunners.length);
       const winner = activeRunners[winnerIndex];
 
+      // 2. 인접 카드 중복 방지 엄격 릴 생성 (Strict Gap Spacing)
       const REPEAT_COUNT = 15;
       let reelList = [];
       const baseCycle = [...allRunners].sort(() => Math.random() - 0.5);
 
       for (let r = 0; r < REPEAT_COUNT; r++) {
         baseCycle.forEach(u => {
+          // 최근 3개 카드 안에 동일 ID가 없도록 인접 중복 방지
           const recent3 = reelList.slice(-3);
           if (!recent3.some(item => item.id === u.id)) {
-            reelList.push(u);
+            reelList.push({ ...u });
           }
         });
       }
 
       while (reelList.length < 30) {
-        allRunners.forEach(u => reelList.push(u));
+        allRunners.forEach(u => {
+          if (reelList.length === 0 || reelList[reelList.length - 1].id !== u.id) {
+            reelList.push({ ...u });
+          }
+        });
       }
 
+      // 타깃 카드는 릴의 75% 지점에 정밀 매핑
       const targetIndex = Math.floor(reelList.length * 0.75);
       reelList[targetIndex] = { ...winner, done: false, isTarget: true };
 
@@ -359,21 +386,27 @@ function App() {
       setTransitionStyle('none');
       setReelY(lastTargetYRef.current);
 
+      // 3. 타깃 오프셋 좌표계 계산 (160px 중앙 53px 조준)
       const CARD_HEIGHT = 54;
       const newTargetY = -(targetIndex * CARD_HEIGHT) + 53;
       lastTargetYRef.current = newTargetY;
 
+      // 2.4s 정확한 감속 트랜지션 적용
+      const SPIN_DURATION_MS = 2400;
+
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          setTransitionStyle('transform 2.4s cubic-bezier(0.12, 0.82, 0.32, 1)');
+          setTransitionStyle(`transform ${SPIN_DURATION_MS / 1000}s cubic-bezier(0.12, 0.82, 0.32, 1)`);
           setReelY(newTargetY);
         });
       });
 
+      // 4. 감속 멈춤 애니메이션이 끝나는 정확한 타이밍(2400ms)에 당첨 연출 및 상태 동기화!
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText(`🎉 [${getUserDisplayName(winner)}] 님 당첨!`);
         
+        // Target Card Highlight
         setReelCards(prev => prev.map((card, idx) => {
           if (idx === targetIndex) {
             return { ...card, isWinnerHighlight: true };
@@ -390,7 +423,7 @@ function App() {
         if (!keepSlide) {
           setTimeout(() => {
             setCurrentSlide(2);
-          }, 800);
+          }, 600);
         } else {
           setTimeout(() => {
             if (rankingScrollRef.current) {
@@ -398,10 +431,10 @@ function App() {
             }
           }, 100);
         }
-      }, 2500);
+      }, SPIN_DURATION_MS);
 
     } else {
-      // 🎴 조 짜기 (팀 나누기) 모드 구동!!
+      // 🎴 조 짜기 (팀 나누기) 모드 구동
       setIsRolling(true);
       setShowCommentary(true);
       setCommentaryText('👥 무작위 조 구성 중...');
@@ -449,7 +482,7 @@ function App() {
     }
   };
 
-  // 🎯 요구사항 1: 홈으로 가기 핸들러 (확정 및 닫기 버튼 전면 제거)
+  // 🎯 요구사항 3: 확정 및 닫기가 아닌 🏠 홈으로 가기 핸들러
   const handleGoHome = () => {
     setPickedWinners([]);
     setGroupTeams(null);
@@ -695,7 +728,7 @@ function App() {
               </div>
 
               {/* Slide 2: Draw Config & Runners List */}
-              <div className="slide-panel" id="slide-2">
+              <div className="slide-panel" id="slide-2" ref={slide2Ref}>
                 <header className="slide-header-nav" style={{ marginBottom: '8px' }}>
                   <button type="button" className="btn-prev-slide" onClick={() => setCurrentSlide(0)}>
                     ⬅️ 뒤로가기
@@ -710,7 +743,6 @@ function App() {
                     </button>
                   </div>
                   
-                  {/* 🎯 요구사항 3: 복구된 🏆 무작위 추첨 vs 👥 조 짜기(팀 나누기) 선택 탭 */}
                   <div className="mode-tab-row" style={{ display: 'flex', gap: '8px', margin: '8px 0' }}>
                     <label className="mode-tab-label" style={{ flex: 1 }}>
                       <input
@@ -853,7 +885,7 @@ function App() {
                           : '🎴 다시 조 짜기'}
                       </span>
                     </button>
-                    {/* 🎯 요구사항 1: 확정 및 닫기 전면 제거 후 🏠 홈으로 가기 버튼 생성! */}
+                    {/* 🎯 요구사항 3: 확정 및 닫기 전면 제거 후 🏠 홈으로 가기 버튼 전용 배치 */}
                     <button type="button" className="btn-secondary-outline" onClick={handleGoHome} style={{ margin: 0 }}>
                       🏠 홈으로 가기
                     </button>
