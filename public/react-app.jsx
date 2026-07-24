@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Last Winner Position Lock v46.0.0)
+// Slack Meadow - Complete React 18 Application Component (Precision Reel & Clean UI v48.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -76,6 +76,42 @@ function shuffleArray(arr) {
   return shuffled;
 }
 
+// 🎯 중복 이름 이격 배치 릴 생성기 (Strict Unique Distance Reel Builder)
+function buildCleanReelList(runners, winner, targetIndex = 18) {
+  if (!runners || runners.length === 0) return [];
+  
+  const runnerMap = new Map();
+  runners.forEach(u => {
+    const norm = normalizeUser(u);
+    if (norm.id && !runnerMap.has(norm.id)) {
+      runnerMap.set(norm.id, norm);
+    }
+  });
+  const uniqueRunners = Array.from(runnerMap.values());
+  const totalCards = 30;
+  const reel = [];
+
+  for (let i = 0; i < totalCards; i++) {
+    let candidates = uniqueRunners.filter(u => {
+      const recent = reel.slice(-3);
+      return !recent.some(r => r.id === u.id);
+    });
+
+    if (candidates.length === 0) {
+      candidates = uniqueRunners.filter(u => reel.length === 0 || reel[reel.length - 1].id !== u.id);
+    }
+    if (candidates.length === 0) {
+      candidates = uniqueRunners;
+    }
+
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    reel.push({ ...picked });
+  }
+
+  reel[targetIndex] = { ...normalizeUser(winner), done: false, isTarget: true };
+  return reel;
+}
+
 // 2. API Communication Service
 const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:3001'
@@ -124,9 +160,8 @@ function App() {
   const [pickedWinners, setPickedWinners] = useState([]);
   const [groupTeams, setGroupTeams] = useState(null);
 
-  // Game Mode & Steppers
+  // Game Mode & Stepper (조 짜기 모드에서만 사용)
   const [gameMode, setGameMode] = useState('podium'); // 'podium' | 'group'
-  const [winnerCount, setWinnerCount] = useState(1);
   const [teamCount, setTeamCount] = useState(2);
 
   // Sheet Navigation & Animation
@@ -181,7 +216,7 @@ function App() {
     return Array.from(runnerMap.values());
   };
 
-  // Preview Reel Update (🎯 당첨자가 지정되었을 때는 마지막 당첨자 카드가 그린 타깃 라인에 계속 고정!)
+  // Preview Reel Update
   useEffect(() => {
     if (!isRolling && pickedWinners.length === 0) {
       const activeRunners = getUniqueActiveRunners();
@@ -247,7 +282,7 @@ function App() {
     }
   };
 
-  // 🎯 [추첨 명단에 추가 ➡️] 클릭 시 바텀시트 2단계 명단 확인 페이지로 넘어가 명단 확인 후 추첨하도록 제어
+  // 🎯 [추첨 명단에 추가 ➡️] 클릭 시 바로 추첨하지 않고 명단 관리 2단계(Slide 1)로 이동!
   const handleAddToDrawList = () => {
     let targetUsers = [];
     let emojiName = 'check';
@@ -271,14 +306,13 @@ function App() {
 
     setFeedbacks(prev => [...prev, group]);
     setBottomSheetCollapsed(false);
-    setCurrentSlide(1); // 2단계 명단 확인 페이지로 이동
+    setCurrentSlide(1);
 
     setTimeout(() => {
       if (slide2Ref.current) slide2Ref.current.scrollTop = 0;
     }, 50);
   };
 
-  // Summon Unreacted Users -> 2단계 명단 확인 페이지로 이동
   const handleSummonUnreacted = () => {
     const targetUsers = (unreactedUsers.length > 0 ? unreactedUsers : FALLBACK_USERS).map(normalizeUser);
     const group = {
@@ -296,7 +330,6 @@ function App() {
     }, 50);
   };
 
-  // Summon Channel All -> 2단계 명단 확인 페이지로 이동
   const handleSummonChannelAll = () => {
     const uniqueUserMap = new Map();
     if (analyzedMsg && analyzedMsg.reactions) {
@@ -322,7 +355,7 @@ function App() {
     }, 50);
   };
 
-  // 🎰 Roulette / Group Dealer Spin Animation
+  // 🎯 룰렛 감속 멈춤 및 정밀 오프셋 100% 보정 회전기
   const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
@@ -351,53 +384,33 @@ function App() {
       setShowCommentary(true);
       setCommentaryText('🎰 룰렛 돌리는 중... 틱틱틱!');
 
-      // 1. 당첨자 1명 무작위 추첨
+      // 1. 무작위 1명 당첨자 선정
       const winnerIndex = Math.floor(Math.random() * activeRunners.length);
       const winner = activeRunners[winnerIndex];
 
-      // 2. 인접 카드 중복 방지 엄격 릴 생성
-      const REPEAT_COUNT = 15;
-      let reelList = [];
-      const baseCycle = [...allRunners].sort(() => Math.random() - 0.5);
-
-      for (let r = 0; r < REPEAT_COUNT; r++) {
-        baseCycle.forEach(u => {
-          const recent3 = reelList.slice(-3);
-          if (!recent3.some(item => item.id === u.id)) {
-            reelList.push({ ...u });
-          }
-        });
-      }
-
-      while (reelList.length < 30) {
-        allRunners.forEach(u => {
-          if (reelList.length === 0 || reelList[reelList.length - 1].id !== u.id) {
-            reelList.push({ ...u });
-          }
-        });
-      }
-
-      const targetIndex = Math.floor(reelList.length * 0.75);
-      reelList[targetIndex] = { ...winner, done: false, isTarget: true };
+      // 2. 인접 중복 방지 엄격 릴 생성 (targetIndex = 18)
+      const targetIndex = 18;
+      const reelList = buildCleanReelList(allRunners, winner, targetIndex);
 
       setReelCards(reelList);
       setTransitionStyle('none');
-      setReelY(lastTargetYRef.current);
+      setReelY(0); // 0px에서 항상 출발하여 100% 매끄러운 2.4s 회전 실행!
 
+      // 3. 160px 중앙 핏 오프셋 계산 (top: 53px 세팅 기준: translateY(-(targetIndex * 54)))
       const CARD_HEIGHT = 54;
-      const newTargetY = -(targetIndex * CARD_HEIGHT) + 53;
+      const newTargetY = -(targetIndex * CARD_HEIGHT);
       lastTargetYRef.current = newTargetY;
 
-      const SPIN_DURATION_MS = 2400;
+      const SPIN_MS = 2400;
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          setTransitionStyle(`transform ${SPIN_DURATION_MS / 1000}s cubic-bezier(0.12, 0.82, 0.32, 1)`);
+          setTransitionStyle(`transform ${SPIN_MS / 1000}s cubic-bezier(0.12, 0.82, 0.32, 1)`);
           setReelY(newTargetY);
         });
       });
 
-      // 🎯 멈춘 시점의 마지막 당첨자 포지션 및 하이라이트를 다음 회전 전까지 고정 유지!
+      // 4. 감속 멈춤 애니메이션이 딱 마치는 2400ms 타이밍에 당첨자 핏 연출!
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText(`🎉 [${getUserDisplayName(winner)}] 님 당첨!`);
@@ -426,7 +439,7 @@ function App() {
             }
           }, 100);
         }
-      }, SPIN_DURATION_MS);
+      }, SPIN_MS);
 
     } else {
       // 🎴 조 짜기 (팀 나누기) 모드 구동
@@ -477,7 +490,7 @@ function App() {
     }
   };
 
-  // 🎯 홈으로 가기 핸들러 (모든 상태 완전 리셋)
+  // 🎯 홈으로 가기 핸들러
   const handleGoHome = () => {
     setPickedWinners([]);
     setGroupTeams(null);
@@ -547,7 +560,7 @@ function App() {
             <div id="group-boxes-grid" className="group-boxes-grid">
               {groupTeams && groupTeams.map((team, tIdx) => (
                 <div key={tIdx} className="group-team-box">
-                  <div className="team-title"><span>TEAM {tIdx + 1}</span> <span>{team.length}명</span></div>
+                  <div className="team-title"><span>TEAM ${tIdx + 1}</span> <span>{team.length}명</span></div>
                   <div className="team-members" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                     {team.map(m => (
                       <span key={m.id} className="group-member-pill">{getUserDisplayName(m)}</span>
@@ -762,17 +775,9 @@ function App() {
                     </label>
                   </div>
 
-                  <div className="mode-config-row">
-                    {gameMode === 'podium' ? (
-                      <div className="config-item" id="config-podium">
-                        <span className="config-label">당첨 인원 수</span>
-                        <div className="stepper-control">
-                          <button type="button" className="btn-stepper" onClick={() => setWinnerCount(Math.max(1, winnerCount - 1))}>-</button>
-                          <input type="number" value={winnerCount} readOnly />
-                          <button type="button" className="btn-stepper" onClick={() => setWinnerCount(Math.min(50, winnerCount + 1))}>+</button>
-                        </div>
-                      </div>
-                    ) : (
+                  {/* 🎯 요구사항 2: 🏆 무작위 추첨 모드에서는 1명씩 당첨자를 순차 추첨하므로 당첨 인원수 설정 제거! 👥 조 짜기 모드에서만 조 개수 설정 표출 */}
+                  {gameMode === 'group' && (
+                    <div className="mode-config-row">
                       <div className="config-item" id="config-group">
                         <span className="config-label">나눌 조 개수</span>
                         <div className="stepper-control">
@@ -781,8 +786,8 @@ function App() {
                           <button type="button" className="btn-stepper" onClick={() => setTeamCount(Math.min(10, teamCount + 1))}>+</button>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 <section className="panel-card feedback-card">
@@ -881,7 +886,6 @@ function App() {
                           : '🎴 다시 조 짜기'}
                       </span>
                     </button>
-                    {/* 🏠 홈으로 가기 버튼 전용 고정 */}
                     <button type="button" className="btn-secondary-outline" onClick={handleGoHome} style={{ margin: 0 }}>
                       🏠 홈으로 가기
                     </button>
