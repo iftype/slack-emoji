@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Avatar Zero-Break Fallback v62.0.0)
+// Slack Meadow - Complete React 18 Application Component (Auto Clipboard & Smart Button v64.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -41,7 +41,7 @@ function parseTextEmojis(text, customCache = {}) {
   return parsed;
 }
 
-// 🛡️ 아바타 이미지 깨짐 방지 헬퍼 (Robust Avatar Fallback System)
+// 🛡️ 아바타 이미지 깨짐 방지 헬퍼
 const DEFAULT_AVATAR_BG = ['10b981', '6366f1', 'ec4899', 'f59e0b', '3b82f6', '8b5cf6', '14b8a6'];
 
 function getAvatarUrl(u) {
@@ -61,7 +61,7 @@ function handleImgError(e, name = 'User') {
   e.target.src = `https://ui-avatars.com/api/?name=${initial}&background=${bg}&color=ffffff&bold=true&size=128`;
 }
 
-// 🛡️ 샘플 백업 사용자 (완벽한 아바타 적용)
+// 🛡️ 샘플 백업 사용자
 const FALLBACK_USERS = [
   { id: 'usr_1', name: '재키(최재영)', real_name: '재키(최재영)', display_name: '재키(최재영)', avatar: 'https://ui-avatars.com/api/?name=재키&background=10b981&color=fff&bold=true' },
   { id: 'usr_2', name: '와이제리(최용준)', real_name: '와이제리(최용준)', display_name: '와이제리(최용준)', avatar: 'https://ui-avatars.com/api/?name=와이제리&background=6366f1&color=fff&bold=true' },
@@ -121,10 +121,8 @@ function buildCleanReelList(runners, winner, targetIndex = 18) {
   const totalCards = 30;
   const reel = new Array(totalCards);
 
-  // 1. targetIndex에 당첨자를 먼저 고정
   reel[targetIndex] = { ...normWinner, done: false, isTarget: true, displayName: winnerName };
 
-  // 2. 다른 슬롯들을 채우되 targetIndex 인접 슬롯(+-2) 및 직전 3개 슬롯 중복 금지
   let pool = shuffleArray([...uniqueRunners]);
 
   for (let i = 0; i < totalCards; i++) {
@@ -236,7 +234,22 @@ function App() {
   const slide2Ref = useRef(null);
   const rankingScrollRef = useRef(null);
 
-  // 🍀 접속 및 서버 커스텀 이모지 로드
+  // 🎯 자동 클립보드 센서 (모바일/데스크톱 모두 지원)
+  const autoCheckClipboard = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && text.includes('slack.com/archives/')) {
+          const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
+          if (match && match[0]) {
+            setSlackUrl(prev => prev ? prev : match[0]);
+          }
+        }
+      }
+    } catch (e) {}
+  };
+
+  // 🍀 접속 및 화면 탭 전환 시 클립보드 자동 체크
   useEffect(() => {
     SlackApi.fetchCustomEmojis().then(emojis => {
       if (emojis && Object.keys(emojis).length > 0) {
@@ -244,6 +257,19 @@ function App() {
       }
     });
     setReelCards([]);
+    
+    // 자동 클립보드 감지
+    autoCheckClipboard();
+
+    const handleFocus = () => autoCheckClipboard();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') autoCheckClipboard();
+    });
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   // Compute All Runners
@@ -331,17 +357,31 @@ function App() {
     }
   }, [feedbacks, isRolling, pickedWinners.length]);
 
-  // Clipboard Paste Helper
-  const handlePasteClipboard = async () => {
+  // 🎯 클립보드 붙여넣기 및 지우기 통합 버튼 핸들러 (중복 클릭 방지)
+  const handlePasteOrClear = async () => {
+    if (slackUrl) {
+      // 이미 링크가 있으면 입력창 지우기
+      setSlackUrl('');
+      return;
+    }
+
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
         const text = await navigator.clipboard.readText();
-        if (text && text.includes('slack.com/archives/')) {
+        if (text) {
           const match = text.match(/https:\/\/[a-zA-Z0-9\-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/);
-          if (match) setSlackUrl(match[0]);
+          if (match && match[0]) {
+            setSlackUrl(match[0]);
+          } else {
+            setSlackUrl(text);
+          }
         }
+      } else {
+        alert('클립보드 접근 권한이 없습니다. 직접 주소를 붙여넣어 주세요.');
       }
-    } catch (e) {}
+    } catch (e) {
+      alert('클립보드 읽기 권한이 거부되었습니다.');
+    }
   };
 
   // Form Submission
@@ -730,8 +770,9 @@ function App() {
                         placeholder="슬랙 메시지 링크 입력..."
                         required
                       />
-                      <button type="button" className="btn-paste-clip" onClick={handlePasteClipboard}>
-                        📋 붙여넣기
+                      {/* 🎯 클립보드 감지 및 지우기 스마트 버튼 */}
+                      <button type="button" className="btn-paste-clip" onClick={handlePasteOrClear}>
+                        {slackUrl ? '❌ 지우기' : '📋 붙여넣기'}
                       </button>
                     </div>
                     <button type="submit" className="btn-primary" disabled={loading}>
