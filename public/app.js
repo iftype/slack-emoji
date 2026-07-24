@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Auto-Select & Direct Addition v24.0.0)
+// Slack Meadow Main App Controller (Auto-Runner Fallback & Clear Alerts v25.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -447,7 +447,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   addToFeedbackBtn?.addEventListener('click', () => {
     if (!currentAnalyzedMessage) return;
     
-    // 만약 activeEmojiGroup이 지정되지 않았으면 첫번째 이모지 그룹 자동 채택
     if (!activeEmojiGroup && currentAnalyzedMessage.reactions && currentAnalyzedMessage.reactions.length > 0) {
       activeEmojiGroup = currentAnalyzedMessage.reactions[0];
     }
@@ -466,8 +465,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    
-    // 명단 슬라이드2 로 전환 및 바텀시트 열기!
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
     bottomSheet?.classList.remove('collapsed');
   });
@@ -496,11 +493,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     runSingleLotterySpin();
   });
 
-  // 🚨 [추첨 시작 시 1번 룰렛 슬라이드로 시원하게 전환하며 룰렛 회전!]
+  // 🚨 [추첨 시작 시 명단이 비어있으면 자동 추가 Fallback & 알림]
   function runSingleLotterySpin() {
-    const activeRunners = getUniqueActiveRunners();
+    let activeRunners = getUniqueActiveRunners();
+    
+    // 만약 사용자가 '추첨 명단 추가' 버튼을 누르지 않은 상태에서 바로 '추첨 시작'을 눌렀을 경우:
+    if (activeRunners.length === 0 && currentAnalyzedMessage) {
+      if (currentAnalyzedMessage.reactions && currentAnalyzedMessage.reactions.length > 0) {
+        // 첫번째 이모지 그룹 자동 소환!
+        const autoGroup = currentAnalyzedMessage.reactions[0];
+        const group = {
+          messageLink: slackUrlInput ? slackUrlInput.value.trim() : 'Auto Group',
+          messageText: currentAnalyzedMessage.text || '',
+          emoji: autoGroup.name,
+          users: shuffleArray(autoGroup.users)
+        };
+        currentFeedbacksData.push(group);
+        renderFeedbackList(currentFeedbacksData);
+        activeRunners = getUniqueActiveRunners();
+      }
+    }
+
     if (activeRunners.length === 0) {
-      alert('추첨할 남은 유저가 없습니다! 🎉');
+      alert('추첨 명단에 소환된 유저가 없습니다!\n\n[➕ 추첨하기 명단 추가] 버튼이나 [🌐 채널 전체로 돌리기] 버튼을 눌러 추첨 대상을 소환해주세요!');
       return;
     }
 
