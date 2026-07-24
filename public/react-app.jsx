@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Clean Start & State-Driven Roulette Engine)
+// Slack Meadow - Complete React 18 Application Component (In-Place Re-Spin on Result Page)
 
 const { useState, useEffect, useRef } = React;
 
@@ -142,6 +142,7 @@ function App() {
   const [reelY, setReelY] = useState(0);
   const [transitionStyle, setTransitionStyle] = useState('none');
   const lastTargetYRef = useRef(0);
+  const rankingScrollRef = useRef(null);
 
   // 🍀 접속 시 100% 클린한 빈 룰렛 상태로 시작!
   useEffect(() => {
@@ -178,7 +179,7 @@ function App() {
     return Array.from(runnerMap.values());
   };
 
-  // Preview Reel Update (100% Clean State when empty)
+  // Preview Reel Update
   useEffect(() => {
     if (!isRolling) {
       const activeRunners = getUniqueActiveRunners();
@@ -239,8 +240,8 @@ function App() {
     }
   };
 
-  // 🎰 Roulette Core Spin Animation
-  const runSingleLotterySpin = (feedbacksInput = null) => {
+  // 🎰 Roulette Core Spin Animation (keepSlide: 다시뽑기 시 현재 결과 슬라이드 유지)
+  const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
 
@@ -258,7 +259,11 @@ function App() {
 
     const allRunners = getAllRunners(sourceFeedbacks).length > 0 ? getAllRunners(sourceFeedbacks) : activeRunners;
     setBottomSheetCollapsed(false);
-    setCurrentSlide(0); // Move to slide 0 so top roulette stage is 100% visible
+
+    // 🎯 다시뽑기(keepSlide === true)일 때는 첫 페이지(Slide 0)로 돌아가지 않고 현재 페이지에서 바로 회전!
+    if (!keepSlide) {
+      setCurrentSlide(0);
+    }
 
     if (gameMode === 'podium') {
       setIsRolling(true);
@@ -324,9 +329,18 @@ function App() {
           users: f.users.map(u => u.id === winner.id ? { ...u, done: true } : u)
         })));
 
-        setTimeout(() => {
-          setCurrentSlide(2); // Slide to result view
-        }, 800);
+        if (!keepSlide) {
+          setTimeout(() => {
+            setCurrentSlide(2); // Slide to result view
+          }, 800);
+        } else {
+          // 결과 페이지에서 바로 뽑았을 때 자동 스크롤 다운
+          setTimeout(() => {
+            if (rankingScrollRef.current) {
+              rankingScrollRef.current.scrollTop = rankingScrollRef.current.scrollHeight;
+            }
+          }, 100);
+        }
       }, 2500);
 
     } else {
@@ -787,7 +801,7 @@ function App() {
                     </button>
                   </div>
 
-                  <div className="ranking-scroll-container" style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingRight: '2px', marginBottom: '10px' }}>
+                  <div ref={rankingScrollRef} className="ranking-scroll-container" style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingRight: '2px', marginBottom: '10px' }}>
                     {gameMode === 'podium' ? (
                       <div className="ranking-list-view">
                         {pickedWinners.map((w, idx) => (
@@ -824,9 +838,9 @@ function App() {
                       disabled={gameMode === 'podium' && activeRunners.length === 0}
                       onClick={() => {
                         if (gameMode === 'podium' && activeRunners.length > 0) {
-                          runSingleLotterySpin();
+                          runSingleLotterySpin(null, true);
                         } else if (gameMode === 'group') {
-                          runSingleLotterySpin();
+                          runSingleLotterySpin(null, true);
                         }
                       }}
                       style={{ margin: 0 }}
