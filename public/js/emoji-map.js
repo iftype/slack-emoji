@@ -39,9 +39,13 @@ function parseTextEmojis(text, customEmojiMap = {}) {
 }
 
 function renderEmojiIcon(name, customEmojiCache = {}) {
+  if (!name) return '';
   if (EMOJI_MAP[name]) return EMOJI_MAP[name];
   if (customEmojiCache && customEmojiCache[name]) {
-    return `<img src="${customEmojiCache[name]}" style="width:16px;height:16px;vertical-align:middle;">`;
+    const imgUrl = customEmojiCache[name];
+    if (imgUrl && typeof imgUrl === 'string' && !imgUrl.startsWith('alias:')) {
+      return `<img src="${imgUrl}" style="width:18px;height:18px;vertical-align:middle;border-radius:3px;">`;
+    }
   }
   return `:${name}:`;
 }

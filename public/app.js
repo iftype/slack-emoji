@@ -236,7 +236,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       chip.innerHTML = `<span class="chip-icon">${renderEmojiIcon(r.name, customEmojiCache)}</span> <span class="chip-count">${r.count}</span>`;
 
       chip.addEventListener('click', () => {
-        chip.classList.toggle('selected');
+        // 🚨 이모지 반응은 단일 선택(Single Select) 방식!
+        emojiFilterChips.querySelectorAll('.emoji-chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
         updateSelectedEmojiDetail(r);
       });
       emojiFilterChips.appendChild(chip);

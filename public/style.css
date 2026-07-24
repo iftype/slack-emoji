@@ -544,9 +544,9 @@ body {
   flex-direction: column;
 }
 
-/* 🚨 접혔을 때: 바텀시트가 아래로 쏙 내려가서 손잡이 핸들바(32px)만 솟아있도록 정확히 튜닝! */
+/* 🚨 접혔을 때: 바텀시트가 아래로 쏙 내려가서 손잡이 핸들바(24px)만 살짝 솟아있어 상단 뷰포트 전체가 100% 시원하게 노출! */
 .bottom-sheet.collapsed {
-  transform: translateY(calc(100% - 32px)) !important;
+  transform: translateY(calc(100% - 24px)) !important;
 }
 
 /* 모바일 포커스 시 화면 자동 확대(Zoom) 방지 16px 폰트 */
