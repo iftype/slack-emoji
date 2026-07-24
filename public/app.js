@@ -154,6 +154,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderRoulettePreview(runners) {
     if (!rouletteReelContainer) return;
     try {
+      if (typeof LotteryEngine !== 'undefined') {
+        LotteryEngine.lastTargetY = 0;
+      }
       rouletteReelContainer.style.transition = 'none';
       rouletteReelContainer.style.transform = 'translateY(0px)';
       rouletteReelContainer.innerHTML = '';

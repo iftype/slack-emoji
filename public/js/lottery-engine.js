@@ -1,14 +1,18 @@
-// Slack Pick Studio Roulette Engine (Target-Centered Reel Precision Engine v28.0.0)
+// Slack Pick Studio Roulette Engine (Target-Centered Precision Reel Engine v36.0.0)
 
 const LotteryEngine = {
   isRolling: false,
   CARD_HEIGHT: 54, // 카드 1개의 높이 (px)
+  lastTargetY: 0,  // 이전 회전에서 멈춘 Y축 위치
 
   // 1명씩 룰렛 감속 스냅 추첨 (Smooth Deceleration & Snap)
   pickSingleWinner(rawRunners, elements, onComplete) {
     if (!rawRunners || rawRunners.length === 0) return;
 
-    this.isRolling = false; // 락 강제 해제
+    if (this.isRolling) {
+      console.warn('Roulette is already rolling, forcing state reset for next spin.');
+      this.isRolling = false; // 락 방지 강제 해제
+    }
 
     // 100% 유저 정규화
     const runners = rawRunners.map(u => {
@@ -38,21 +42,27 @@ const LotteryEngine = {
     const winnerIndex = Math.floor(Math.random() * activeRunners.length);
     const winner = activeRunners[winnerIndex];
 
-    // 2. 꼬리물기 릴 명단 구축 (10 세트 반복)
-    const REPEAT_COUNT = 12;
+    // 2. 꼬리물기 릴 명단 구축 (15 세트 반복)
+    const REPEAT_COUNT = 15;
     let reelList = [];
     
+    const baseCycle = [...runners].sort(() => Math.random() - 0.5);
+
     for (let r = 0; r < REPEAT_COUNT; r++) {
-      const setRunners = [...runners].sort(() => Math.random() - 0.5);
-      reelList.push(...setRunners);
+      baseCycle.forEach(u => {
+        const recent3 = reelList.slice(-3);
+        if (!recent3.some(item => item.id === u.id)) {
+          reelList.push(u);
+        }
+      });
     }
 
-    while (reelList.length < 25) {
+    while (reelList.length < 30) {
       runners.forEach(u => reelList.push(u));
     }
 
-    // 타깃 인덱스: 릴의 15번째 카드 위치
-    const targetIndex = Math.min(15, reelList.length - 4);
+    // 타깃 인덱스: 릴의 75% 지점에 위치한 당첨자 카드로 타깃팅
+    const targetIndex = Math.floor(reelList.length * 0.75);
     reelList[targetIndex] = { ...winner, done: false };
 
     if (!rouletteReelContainer) return;
@@ -71,24 +81,26 @@ const LotteryEngine = {
       `;
     }).join('');
 
-    // 시작 포지션 (0px에서 출발)
-    const targetY = -(targetIndex * this.CARD_HEIGHT);
-
+    // 시작 포지션 (이전 멈춘 위치에서 자연스럽게 출발)
     rouletteReelContainer.style.transition = 'none';
-    rouletteReelContainer.style.transform = 'translateY(0px)';
+    rouletteReelContainer.style.transform = `translateY(${this.lastTargetY}px)`;
+
+    // 타깃 Y 좌표 계산: 160px 윈도우 중앙 (53px top offset) 정밀 조준
+    const newTargetY = -(targetIndex * this.CARD_HEIGHT) + 53;
+    this.lastTargetY = newTargetY;
 
     // 강제 리플로우 후 감속 회전 실행
     void rouletteReelContainer.offsetHeight;
 
     setTimeout(() => {
-      rouletteReelContainer.style.transition = 'transform 2.2s cubic-bezier(0.12, 0.82, 0.32, 1)';
-      rouletteReelContainer.style.transform = `translateY(${targetY}px)`;
+      rouletteReelContainer.style.transition = 'transform 2.4s cubic-bezier(0.12, 0.82, 0.32, 1)';
+      rouletteReelContainer.style.transform = `translateY(${newTargetY}px)`;
     }, 40);
 
     const self = this;
     setTimeout(() => {
       self.finishSingleWinner(winner, targetIndex, elements, onComplete);
-    }, 2400);
+    }, 2500);
   },
 
   finishSingleWinner(winner, targetIndex, elements, onComplete) {
