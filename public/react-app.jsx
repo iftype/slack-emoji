@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Direct Spin on Emoji Pick & Zero-Fail Guarantee)
+// Slack Meadow - Complete React 18 Application Component (Clean Start & State-Driven Roulette Engine)
 
 const { useState, useEffect, useRef } = React;
 
@@ -36,7 +36,7 @@ function parseTextEmojis(text, customCache = {}) {
   return parsed;
 }
 
-// 🛡️ Fallback Backup Users (Zero-Fail Guarantee)
+// 🛡️ Fallback Backup Users
 const FALLBACK_USERS = [
   { id: 'usr_1', name: '재키(최재영)', real_name: '재키(최재영)', display_name: '재키(최재영)', avatar: 'https://ca.slack-edge.com/T000-U001-avatar.png' },
   { id: 'usr_2', name: '와이제리(최용준)', real_name: '와이제리(최용준)', display_name: '와이제리(최용준)', avatar: 'https://ca.slack-edge.com/T000-U002-avatar.png' },
@@ -143,16 +143,10 @@ function App() {
   const [transitionStyle, setTransitionStyle] = useState('none');
   const lastTargetYRef = useRef(0);
 
-  // Initialize
+  // 🍀 접속 시 100% 클린한 빈 룰렛 상태로 시작!
   useEffect(() => {
     SlackApi.fetchCustomEmojis().then(setCustomEmojis);
-    
-    // Default initial preview reel
-    let cyclic = [];
-    for (let i = 0; i < 5; i++) {
-      cyclic.push(...shuffleArray(FALLBACK_USERS.map(normalizeUser)));
-    }
-    setReelCards(cyclic);
+    setReelCards([]);
   }, []);
 
   // Compute Active / All Runners
@@ -184,16 +178,19 @@ function App() {
     return Array.from(runnerMap.values());
   };
 
-  // Preview Reel Update
+  // Preview Reel Update (100% Clean State when empty)
   useEffect(() => {
     if (!isRolling) {
       const activeRunners = getUniqueActiveRunners();
-      const displayRunners = activeRunners.length > 0 ? activeRunners : FALLBACK_USERS.map(normalizeUser);
-      let cyclic = [];
-      for (let i = 0; i < 5; i++) {
-        cyclic.push(...shuffleArray(displayRunners));
+      if (activeRunners.length === 0) {
+        setReelCards([]);
+      } else {
+        let cyclic = [];
+        for (let i = 0; i < 5; i++) {
+          cyclic.push(...shuffleArray(activeRunners));
+        }
+        setReelCards(cyclic);
       }
-      setReelCards(cyclic);
       setReelY(0);
       setTransitionStyle('none');
       lastTargetYRef.current = 0;
@@ -380,8 +377,6 @@ function App() {
 
     const nextFeedbacks = [...feedbacks, group];
     setFeedbacks(nextFeedbacks);
-    
-    // 🔥 초록색 추첨하기 버튼 누르자마자 룰렛 직행 회전 구동!
     runSingleLotterySpin(nextFeedbacks);
   };
 
@@ -749,7 +744,7 @@ function App() {
                 <section className="panel-card feedback-card">
                   <div className="feedback-card-header">
                     <h3>추첨 명단</h3>
-                    <div class="header-actions">
+                    <div className="header-actions">
                       <button type="button" className="btn-action-xs btn-danger-xs" onClick={handleDeleteAllRunners}>전체삭제</button>
                     </div>
                   </div>
