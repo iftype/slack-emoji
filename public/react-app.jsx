@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Strict Adjacent Winner Isolation v58.0.0)
+// Slack Meadow - Complete React 18 Application Component (Avatar Zero-Break Fallback v62.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -18,7 +18,7 @@ function renderEmojiIcon(name, customCache = {}) {
   if (!cleanName) return '😃';
 
   if (customCache[cleanName]) {
-    return `<img src="${customCache[cleanName]}" alt=":${cleanName}:" class="custom-emoji-img" style="width:20px;height:20px;vertical-align:middle;border-radius:4px;display:inline-block;">`;
+    return `<img src="${customCache[cleanName]}" alt=":${cleanName}:" class="custom-emoji-img" style="width:20px;height:20px;vertical-align:middle;border-radius:4px;display:inline-block;" onerror="this.style.display='none';">`;
   }
   if (EMOJI_MAP[cleanName]) return EMOJI_MAP[cleanName];
   if (/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(name)) return name;
@@ -41,15 +41,35 @@ function parseTextEmojis(text, customCache = {}) {
   return parsed;
 }
 
-// 🛡️ Fallback Backup Users
+// 🛡️ 아바타 이미지 깨짐 방지 헬퍼 (Robust Avatar Fallback System)
+const DEFAULT_AVATAR_BG = ['10b981', '6366f1', 'ec4899', 'f59e0b', '3b82f6', '8b5cf6', '14b8a6'];
+
+function getAvatarUrl(u) {
+  if (u && u.avatar && u.avatar.trim() && !u.avatar.includes('T000-U00') && !u.avatar.includes('via.placeholder')) {
+    return u.avatar;
+  }
+  const name = getUserDisplayName(u);
+  const initial = encodeURIComponent(name.charAt(0) || '👤');
+  const bg = DEFAULT_AVATAR_BG[Math.abs(name.charCodeAt(0) || 0) % DEFAULT_AVATAR_BG.length];
+  return `https://ui-avatars.com/api/?name=${initial}&background=${bg}&color=ffffff&bold=true&size=128`;
+}
+
+function handleImgError(e, name = 'User') {
+  e.target.onerror = null;
+  const initial = encodeURIComponent((name || 'U').charAt(0));
+  const bg = DEFAULT_AVATAR_BG[Math.abs(name.charCodeAt(0) || 0) % DEFAULT_AVATAR_BG.length];
+  e.target.src = `https://ui-avatars.com/api/?name=${initial}&background=${bg}&color=ffffff&bold=true&size=128`;
+}
+
+// 🛡️ 샘플 백업 사용자 (완벽한 아바타 적용)
 const FALLBACK_USERS = [
-  { id: 'usr_1', name: '재키(최재영)', real_name: '재키(최재영)', display_name: '재키(최재영)', avatar: 'https://ca.slack-edge.com/T000-U001-avatar.png' },
-  { id: 'usr_2', name: '와이제리(최용준)', real_name: '와이제리(최용준)', display_name: '와이제리(최용준)', avatar: 'https://ca.slack-edge.com/T000-U002-avatar.png' },
-  { id: 'usr_3', name: '바니(임혜정)', real_name: '바니(임혜정)', display_name: '바니(임혜정)', avatar: 'https://ca.slack-edge.com/T000-U003-avatar.png' },
-  { id: 'usr_4', name: '호이(조상준)', real_name: '호이(조상준)', display_name: '호이(조상준)', avatar: 'https://ca.slack-edge.com/T000-U004-avatar.png' },
-  { id: 'usr_5', name: '정콩이(유정빈)', real_name: '정콩이(유정빈)', display_name: '정콩이(유정빈)', avatar: 'https://ca.slack-edge.com/T000-U005-avatar.png' },
-  { id: 'usr_6', name: '이스타', real_name: '이스타', display_name: '이스타', avatar: '' },
-  { id: 'usr_7', name: '정찬', real_name: '정찬', display_name: '정찬', avatar: '' }
+  { id: 'usr_1', name: '재키(최재영)', real_name: '재키(최재영)', display_name: '재키(최재영)', avatar: 'https://ui-avatars.com/api/?name=재키&background=10b981&color=fff&bold=true' },
+  { id: 'usr_2', name: '와이제리(최용준)', real_name: '와이제리(최용준)', display_name: '와이제리(최용준)', avatar: 'https://ui-avatars.com/api/?name=와이제리&background=6366f1&color=fff&bold=true' },
+  { id: 'usr_3', name: '바니(임혜정)', real_name: '바니(임혜정)', display_name: '바니(임혜정)', avatar: 'https://ui-avatars.com/api/?name=바니&background=ec4899&color=fff&bold=true' },
+  { id: 'usr_4', name: '호이(조상준)', real_name: '호이(조상준)', display_name: '호이(조상준)', avatar: 'https://ui-avatars.com/api/?name=호이&background=f59e0b&color=fff&bold=true' },
+  { id: 'usr_5', name: '정콩이(유정빈)', real_name: '정콩이(유정빈)', display_name: '정콩이(유정빈)', avatar: 'https://ui-avatars.com/api/?name=정콩이&background=3b82f6&color=fff&bold=true' },
+  { id: 'usr_6', name: '이스타', real_name: '이스타', display_name: '이스타', avatar: 'https://ui-avatars.com/api/?name=이스타&background=8b5cf6&color=fff&bold=true' },
+  { id: 'usr_7', name: '정찬', real_name: '정찬', display_name: '정찬', avatar: 'https://ui-avatars.com/api/?name=정찬&background=14b8a6&color=fff&bold=true' }
 ];
 
 function normalizeUser(u) {
@@ -81,7 +101,7 @@ function shuffleArray(arr) {
   return shuffled;
 }
 
-// 🎯 당첨자 인접 슬롯 동일 인물 중복 원천 차단 릴 생성기 (Strict Adjacent Isolation Reel Builder)
+// 🎯 당첨자 인접 슬롯 동일인물 중복 원천 차단 릴 생성기
 function buildCleanReelList(runners, winner, targetIndex = 18) {
   if (!runners || runners.length === 0) return [];
   
@@ -115,7 +135,6 @@ function buildCleanReelList(runners, winner, targetIndex = 18) {
     }
 
     let candidateIdx = pool.findIndex(u => {
-      // 직전 3개 카드 중복 금지
       const recent = [];
       if (i > 0 && reel[i - 1]) recent.push(reel[i - 1]);
       if (i > 1 && reel[i - 2]) recent.push(reel[i - 2]);
@@ -123,7 +142,6 @@ function buildCleanReelList(runners, winner, targetIndex = 18) {
 
       if (recent.some(r => r.id === u.id || r.displayName === u.displayName)) return false;
 
-      // targetIndex와 거리 2 이하인 슬롯에서는 당첨자와 동일한 유저 선택 금지
       if (Math.abs(i - targetIndex) <= 2) {
         if (u.id === winnerId || u.displayName === winnerName) return false;
       }
@@ -131,7 +149,6 @@ function buildCleanReelList(runners, winner, targetIndex = 18) {
       return true;
     });
 
-    // 완화된 예비 후보 (인원수가 적을 때)
     if (candidateIdx === -1) {
       candidateIdx = pool.findIndex(u => {
         const prevCard = (i > 0 && reel[i - 1]) ? reel[i - 1] : null;
@@ -491,7 +508,6 @@ function App() {
       const winner = activeRunners[winnerIndex];
 
       const targetIndex = 18;
-      // 🎯 당첨자 위치 인접(위아래) 동일인물 절대 중복 차단 릴 생성
       const reelList = buildCleanReelList(allRunners, winner, targetIndex);
 
       setReelCards(reelList);
@@ -636,7 +652,12 @@ function App() {
 
                     return (
                       <div key={idx} className={cardClass} data-index={idx}>
-                        <img src={u.avatar || 'https://via.placeholder.com/32'} className="card-avatar" alt="" />
+                        <img
+                          src={getAvatarUrl(u)}
+                          onError={(e) => handleImgError(e, displayName)}
+                          className="card-avatar"
+                          alt=""
+                        />
                         <span className="card-name">
                           {u.isWinnerHighlight ? `🎉 ${displayName}` : (isDone ? <del style={{ color: '#858a8d' }}>{displayName}</del> : displayName)}
                         </span>
@@ -723,7 +744,12 @@ function App() {
                 {analyzedMsg && (
                   <section className="panel-card result-card">
                     <div className="message-info">
-                      <img src={analyzedMsg.user?.avatar || 'https://via.placeholder.com/40'} className="avatar" alt="" />
+                      <img
+                        src={getAvatarUrl(analyzedMsg.user)}
+                        onError={(e) => handleImgError(e, getUserDisplayName(analyzedMsg.user))}
+                        className="avatar"
+                        alt=""
+                      />
                       <div className="message-info-body">
                         <div className="message-info-header">
                           <span className="username">{getUserDisplayName(analyzedMsg.user)}</span>
@@ -787,7 +813,12 @@ function App() {
                               {(activeEmojiGroup.users || []).map((u, i) => (
                                 <div key={i} className="user-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#ffffff', border: '1px solid #cbd5e1', padding: '3px 8px', borderRadius: '12px', margin: '2px', fontSize: '12px' }}>
                                   <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>{i + 1}.</span>
-                                  <img src={u.avatar || 'https://via.placeholder.com/20'} style={{ width: '18px', height: '18px', borderRadius: '50%' }} alt="" />
+                                  <img
+                                    src={getAvatarUrl(u)}
+                                    onError={(e) => handleImgError(e, getUserDisplayName(u))}
+                                    style={{ width: '18px', height: '18px', borderRadius: '50%' }}
+                                    alt=""
+                                  />
                                   <span>{getUserDisplayName(u)}</span>
                                 </div>
                               ))}
@@ -811,7 +842,11 @@ function App() {
                         <div className="unreacted-user-list">
                           {unreactedUsers.map((u, i) => (
                             <div key={i} className="unreacted-user-item">
-                              <img src={u.avatar || 'https://via.placeholder.com/22'} alt="" />
+                              <img
+                                src={getAvatarUrl(u)}
+                                onError={(e) => handleImgError(e, getUserDisplayName(u))}
+                                alt=""
+                              />
                               <span>{getUserDisplayName(u)}</span>
                             </div>
                           ))}
@@ -844,7 +879,12 @@ function App() {
                               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #e2e8f0', fontSize: '12px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, minWidth: '16px' }}>{idx + 1}.</span>
-                                  <img src={item.user.avatar || 'https://via.placeholder.com/20'} style={{ width: '20px', height: '20px', borderRadius: '50%' }} alt="" />
+                                  <img
+                                    src={getAvatarUrl(item.user)}
+                                    onError={(e) => handleImgError(e, item.name)}
+                                    style={{ width: '20px', height: '20px', borderRadius: '50%' }}
+                                    alt=""
+                                  />
                                   <span style={{ fontWeight: 600, color: '#1e293b' }}>{item.name}</span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '4px' }}>
@@ -967,7 +1007,12 @@ function App() {
                         {pickedWinners.map((w, idx) => (
                           <div key={idx} className="winner-result-card" id={`winner-card-${idx}`}>
                             <span className="winner-rank-badge">{idx + 1}등</span>
-                            <img src={w.avatar || 'https://via.placeholder.com/44'} className="winner-avatar" alt="" />
+                            <img
+                              src={getAvatarUrl(w)}
+                              onError={(e) => handleImgError(e, getUserDisplayName(w))}
+                              className="winner-avatar"
+                              alt=""
+                            />
                             <div className="winner-info">
                               <div className="name">{getUserDisplayName(w)}</div>
                               <div style={{ fontSize: '12px', color: '#64748b' }}>🎉 축하합니다! (중복제외 100% 적용)</div>
