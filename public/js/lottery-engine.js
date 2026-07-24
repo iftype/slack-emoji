@@ -1,11 +1,11 @@
-// Slack Pick Studio Lottery & Team Divider Engine
+// Slack Pick Studio Roulette Engine (Chzzk-Vote Deceleration & Cyclic Loop Style)
 
 const LotteryEngine = {
   isRolling: false,
   rollAnimTimer: null,
-  reelY: 0,
+  CARD_HEIGHT: 54, // 카드 1개의 높이 (px)
 
-  // 1명씩 쾌속 룰렛 추첨 (약 1.1초 쫄깃 애니메이션)
+  // 1명씩 룰렛 감속 스냅 추첨 (Smooth Deceleration & Snap)
   pickSingleWinner(runners, elements, onComplete) {
     if (this.isRolling || !runners || runners.length === 0) return;
     this.isRolling = true;
@@ -14,68 +14,77 @@ const LotteryEngine = {
     raceCommentary.classList.remove('hidden');
     commentaryText.textContent = '🎰 룰렛 돌리는 중... 틱틱틱!';
 
-    // 무작위 1명 당첨자 선정 및 릴 무작위 셔플
+    // 1. 무작위 1명 당첨자 선정
     const winnerIndex = Math.floor(Math.random() * runners.length);
     const winner = runners[winnerIndex];
 
-    // 🎲 릴 카드 순서를 100% 무작위 셔플!
-    const shuffledReelRunners = [...runners].sort(() => Math.random() - 0.5);
-
-    // 슬롯 릴 카드 바인딩
-    let reelCardsHtml = '';
-    for (let i = 0; i < 6; i++) {
-      shuffledReelRunners.forEach(u => {
-        reelCardsHtml += `
-          <div class="picker-card-2d">
-            <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-            <span class="card-name">${u.real_name || u.name}</span>
-          </div>
-        `;
-      });
+    // 2. 꼬리물기 릴 카드 배열 구축 (12 세트 반복)
+    const REPEAT_COUNT = 12;
+    let reelList = [];
+    for (let r = 0; r < REPEAT_COUNT; r++) {
+      // 각 세트마다 약간씩 무작위 셔플
+      const setRunners = [...runners].sort(() => Math.random() - 0.5);
+      reelList.push(...setRunners);
     }
-    rouletteReelContainer.innerHTML = reelCardsHtml;
 
-    let startTime = Date.now();
-    let duration = 1100; // 1.1초 쾌속 추첨
+    // Target 인덱스: 릴의 80% 지점에 위치한 당첨자 카드로 타깃팅
+    const targetSetIndex = REPEAT_COUNT - 3;
+    const targetIndex = (targetSetIndex * runners.length) + winnerIndex;
+    
+    // 당첨자 카드가 targetIndex에 올 수 있도록 배열 강제 보정
+    reelList[targetIndex] = winner;
+
+    // 슬롯 릴 HTML 바인딩
+    rouletteReelContainer.innerHTML = reelList.map((u, idx) => {
+      const isTarget = (idx === targetIndex);
+      return `
+        <div class="picker-card-2d ${isTarget ? 'target-winner-card' : ''}" data-index="${idx}">
+          <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
+          <span class="card-name">${u.real_name || u.name}</span>
+        </div>
+      `;
+    }).join('');
+
+    // 초기 위치 리셋
+    rouletteReelContainer.style.transition = 'none';
+    rouletteReelContainer.style.transform = 'translateY(0px)';
+
+    // 타깃 오프셋 계산 (타깃 카드가 룰렛 창 160px 중앙 53px 지점에 오도록)
+    // 룰렛 창 높이 160px, 카드 높이 약 54px -> (160 - 54)/2 = 53px 오프셋
+    const targetY = -(targetIndex * this.CARD_HEIGHT) + 53;
+
+    // 강제 리플로우 후 감속 애니메이션 적용 (chzzk-vote easeOut cubic-bezier)
+    requestAnimationFrame(() => {
+      rouletteReelContainer.style.transition = 'transform 2.6s cubic-bezier(0.15, 0.85, 0.35, 1)';
+      rouletteReelContainer.style.transform = `translateY(${targetY}px)`;
+    });
+
     const self = this;
-
-    function rollLoop() {
-      if (!self.isRolling) return;
-      let elapsed = Date.now() - startTime;
-      let progress = elapsed / duration;
-
-      if (progress < 1) {
-        let speed = Math.max(3, 40 * (1 - Math.pow(progress, 2)));
-        self.reelY -= speed;
-        if (Math.abs(self.reelY) > 1000) self.reelY = 0;
-        rouletteReelContainer.style.transform = `translateY(${self.reelY}px)`;
-        self.rollAnimTimer = requestAnimationFrame(rollLoop);
-      } else {
-        self.finishSingleWinner(winner, runners, elements, onComplete);
-      }
-    }
-    rollLoop();
+    // 애니메이션 감속 완료 후 처리
+    setTimeout(() => {
+      self.finishSingleWinner(winner, targetIndex, elements, onComplete);
+    }, 2700);
   },
 
-  finishSingleWinner(winner, runners, elements, onComplete) {
+  finishSingleWinner(winner, targetIndex, elements, onComplete) {
     this.isRolling = false;
-    if (this.rollAnimTimer) cancelAnimationFrame(this.rollAnimTimer);
     
     const { rouletteReelContainer, commentaryText } = elements;
     commentaryText.textContent = `🎉 [${winner.real_name || winner.name}] 님 당첨!`;
 
-    // 🎯 1등 당첨자 카드가 타깃 라인(▶ ◀) 정중앙에 100% 딱 들어가도록 또렷하게 렌더링!
-    rouletteReelContainer.innerHTML = `
-      <div class="picker-card-2d winner-highlight" style="transform:scale(1.05);z-index:10;box-shadow:0 4px 20px rgba(0,196,113,0.35);margin:0 auto;">
-        <img src="${winner.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-        <span class="card-name">🎉 ${winner.real_name || winner.name}</span>
-      </div>
-    `;
-    rouletteReelContainer.style.transform = 'translateY(0px)';
+    // 🎯 멈춘 위치의 타깃 카드를 highlight 효과로 밝게 표시!
+    const targetElement = rouletteReelContainer.querySelector(`[data-index="${targetIndex}"]`);
+    if (targetElement) {
+      targetElement.classList.add('winner-highlight');
+      const nameEl = targetElement.querySelector('.card-name');
+      if (nameEl && !nameEl.textContent.includes('🎉')) {
+        nameEl.textContent = `🎉 ${winner.real_name || winner.name}`;
+      }
+    }
 
     setTimeout(() => {
       if (onComplete) onComplete(winner);
-    }, 700);
+    }, 500);
   },
 
   // 조 짜기 (팀 나누기) 쾌속 분배
@@ -112,6 +121,5 @@ const LotteryEngine = {
 
   stopAll() {
     this.isRolling = false;
-    if (this.rollAnimTimer) cancelAnimationFrame(this.rollAnimTimer);
   }
 };

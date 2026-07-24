@@ -376,9 +376,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 🚨 남아있는 순수 미당첨 유저(runners)로만 룰렛 카드 릴을 무작위 셔플하여 갱신!
+  // 🚨 무한 꼬리물기 룰렛 프리뷰 (추첨 전 위아래 풍성하게 렌더링!)
   function renderRoulettePreview(runners) {
+    rouletteReelContainer.style.transition = 'none';
+    rouletteReelContainer.style.transform = 'translateY(0px)';
     rouletteReelContainer.innerHTML = '';
+    
     if (!runners || runners.length === 0) {
       rouletteReelContainer.innerHTML = `
         <div class="picker-card-2d empty-card">
@@ -389,18 +392,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // 🎲 무작위 셔플하여 특정 유저 고정 1번 노출 원천 차단!
-    const shuffledRunners = [...runners].sort(() => Math.random() - 0.5);
+    // 🎲 꼬리물기 룰렛 휠을 위해 5세트 반복 연결!
+    let cyclicRunners = [];
+    for (let i = 0; i < 5; i++) {
+      const setRunners = [...runners].sort(() => Math.random() - 0.5);
+      cyclicRunners.push(...setRunners);
+    }
 
-    shuffledRunners.forEach(u => {
-      const card = document.createElement('div');
-      card.className = 'picker-card-2d';
-      card.innerHTML = `
+    rouletteReelContainer.innerHTML = cyclicRunners.map(u => `
+      <div class="picker-card-2d">
         <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
         <span class="card-name">${u.real_name || u.name}</span>
-      `;
-      rouletteReelContainer.appendChild(card);
-    });
+      </div>
+    `).join('');
   }
 
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
