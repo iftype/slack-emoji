@@ -79,16 +79,127 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pickedWinners = [];
   let lastGroupResult = null;
 
+  // 🎲 100% 무작위 셔플 헬퍼
+  function shuffleArray(arr) {
+    if (!arr || !Array.isArray(arr)) return [];
+    const shuffled = [...arr];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  // 🚨 [핵심] 상단에 함수 정의 배치 (ReferenceError 100% 방지)
+  function getAllRunners() {
+    const runnerMap = new Map();
+    (currentFeedbacksData || []).forEach(f => {
+      f.users.forEach(u => {
+        if (!runnerMap.has(u.id)) {
+          runnerMap.set(u.id, u);
+        }
+      });
+    });
+    return Array.from(runnerMap.values());
+  }
+
+  function getUniqueActiveRunners() {
+    const runnerMap = new Map();
+    (currentFeedbacksData || []).forEach(f => {
+      f.users.forEach(u => {
+        if (!u.done && !runnerMap.has(u.id)) {
+          runnerMap.set(u.id, u);
+        }
+      });
+    });
+    return Array.from(runnerMap.values());
+  }
+
+  function renderRoulettePreview(runners) {
+    rouletteReelContainer.style.transition = 'none';
+    rouletteReelContainer.style.transform = 'translateY(0px)';
+    rouletteReelContainer.innerHTML = '';
+    
+    if (!runners || runners.length === 0) {
+      rouletteReelContainer.innerHTML = `
+        <div class="picker-card-2d empty-card">
+          <span class="card-avatar-text">🌱</span>
+          <span class="card-name">명단을 소환해보세요!</span>
+        </div>
+      `;
+      return;
+    }
+
+    let cyclicRunners = [];
+    for (let i = 0; i < 5; i++) {
+      const setRunners = [...runners].sort(() => Math.random() - 0.5);
+      cyclicRunners.push(...setRunners);
+    }
+
+    rouletteReelContainer.innerHTML = cyclicRunners.map(u => `
+      <div class="picker-card-2d">
+        <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
+        <span class="card-name">${getUserDisplayName(u)}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderFeedbackList(feedbacks) {
+    currentFeedbacksData = feedbacks || [];
+    const container = document.getElementById('feedback-list-container');
+    if (!container) return;
+
+    if (currentFeedbacksData.length === 0) {
+      container.innerHTML = '<p class="empty-text">소환된 유저가 없습니다. 슬랙 메시지를 분석해 소환해보세요!</p>';
+      if (startRaceBtn) startRaceBtn.classList.add('hidden');
+      renderRoulettePreview([]);
+      return;
+    }
+
+    if (startRaceBtn) startRaceBtn.classList.remove('hidden');
+    const uniqueRunners = getUniqueActiveRunners();
+    renderRoulettePreview(uniqueRunners);
+
+    let html = '';
+    currentFeedbacksData.forEach(f => {
+      const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
+      html += `
+        <div class="feedback-group-item" style="background:#f8f9fa;border:1px solid #e4e5e7;border-radius:10px;padding:10px;margin-bottom:8px;">
+          <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
+            <span>${emojiBadge} (${f.users.length}명)</span>
+            <button class="btn-danger-xs" data-link="${f.messageLink}" data-emoji="${f.emoji}">삭제</button>
+          </div>
+          <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${f.users.map(u => `
+              <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${getUserDisplayName(u)}</span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+
+    container.querySelectorAll('.btn-danger-xs').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const link = e.target.dataset.link;
+        const emoji = e.target.dataset.emoji;
+        const updated = await SlackApi.deleteFeedbackGroup(link, emoji);
+        renderFeedbackList(updated);
+      });
+    });
+  }
+
   // Init Main Screen
   loadMainMeadow();
 
   async function loadMainMeadow() {
     customEmojiCache = await SlackApi.fetchCustomEmojis();
+    currentFeedbacksData = [];
     renderFeedbackList([]);
     renderRoulettePreview([]);
   }
 
-  // ➕/➖ Stepper 수량 증감 버튼 이벤트 (요구사항 1)
+  // Stepper Controls
   const btnWinnerMinus = document.getElementById('btn-winner-minus');
   const btnWinnerPlus = document.getElementById('btn-winner-plus');
   const btnTeamMinus = document.getElementById('btn-team-minus');
@@ -116,12 +227,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 🎛️ 바텀시트 접기/펼치기 핸들 클릭
   bottomSheetHandle.addEventListener('click', () => {
     bottomSheet.classList.toggle('collapsed');
   });
 
-  // 📋 수동 클립보드 붙여넣기 버튼 클릭 (자동 붙여넣기 100% 제거)
   if (btnPasteClip) {
     btnPasteClip.addEventListener('click', async () => {
       try {
@@ -140,27 +249,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 🎲 100% 무작위 셔플 헬퍼 (슬랙 반응자 정렬 순서로 인한 고정 노출 원천 차단)
-  function shuffleArray(arr) {
-    if (!arr || !Array.isArray(arr)) return [];
-    const shuffled = [...arr];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }
-
-  // 🌐 채널 인원 전체 소환 버튼 (유저 ID 기준 중복 100% 완전 제거 & 무작위 셔플!)
   btnSummonChannelAll.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !currentAnalyzedMessage.channel) {
       alert('슬랙 링크를 먼저 분석해주시거나 채널 정보가 필요합니다!');
       return;
     }
     
-    // 🚨 UNIQUE Map으로 유저 ID 중복 원천 차단!
     const uniqueUserMap = new Map();
-    
     (currentUnreactedUsers || []).forEach(u => uniqueUserMap.set(u.id, u));
     
     if (currentAnalyzedMessage.reactions) {
@@ -186,7 +281,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     bottomSheet.classList.remove('collapsed');
   });
 
-  // 🔍 Analyze Slack URL
   analyzerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = slackUrlInput.value.trim();
@@ -236,7 +330,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       chip.innerHTML = `<span class="chip-icon">${renderEmojiIcon(r.name, customEmojiCache)}</span> <span class="chip-count">${r.count}</span>`;
 
       chip.addEventListener('click', () => {
-        // 🚨 이모지 반응은 단일 선택(Single Select) 방식!
         emojiFilterChips.querySelectorAll('.emoji-chip').forEach(c => c.classList.remove('selected'));
         chip.classList.add('selected');
         updateSelectedEmojiDetail(r);
@@ -323,31 +416,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
 
-  // 전체 소환 유저 목록 반환 (당첨자 포함 - 룰렛 회색 딤드 표시용)
-  function getAllRunners() {
-    const runnerMap = new Map();
-    currentFeedbacksData.forEach(f => {
-      f.users.forEach(u => {
-        if (!runnerMap.has(u.id)) {
-          runnerMap.set(u.id, u);
-        }
-      });
+  const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
+  gameModeRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const mode = e.target.value;
+      if (mode === 'group') {
+        configPodium.classList.add('hidden');
+        configGroup.classList.remove('hidden');
+        rouletteStage.classList.add('hidden');
+        groupDealerStage.classList.remove('hidden');
+        startRaceBtn.textContent = '🎴 팀 나누기!';
+      } else {
+        configGroup.classList.add('hidden');
+        configPodium.classList.remove('hidden');
+        groupDealerStage.classList.add('hidden');
+        rouletteStage.classList.remove('hidden');
+        startRaceBtn.textContent = '🎰 추첨 시작!';
+      }
     });
-    return Array.from(runnerMap.values());
-  }
+  });
 
-  // 🚨 이미 당첨되어 선출된 유저(u.done === true)를 제외한 남아있는 순수 미당첨 유저만 반환!
-  function getUniqueActiveRunners() {
-    const runnerMap = new Map();
-    currentFeedbacksData.forEach(f => {
-      f.users.forEach(u => {
-        if (!u.done && !runnerMap.has(u.id)) {
-          runnerMap.set(u.id, u);
-        }
-      });
-    });
-    return Array.from(runnerMap.values());
-  }
+  startRaceBtn.addEventListener('click', () => {
+    runSingleLotterySpin();
+  });
 
   function runSingleLotterySpin() {
     const activeRunners = getUniqueActiveRunners();
@@ -356,7 +447,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const allRunners = getAllRunners(); // 전체 명단 (당첨자는 룰렛에서 회색 취소선으로 유지!)
+    const allRunners = getAllRunners();
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
 
@@ -364,7 +455,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       LotteryEngine.pickSingleWinner(allRunners, elements, (winner) => {
         if (winner) {
           pickedWinners.push(winner);
-          // 당첨된 유저를 done = true 로 확고히 기록
           currentFeedbacksData.forEach(f => {
             f.users.forEach(u => {
               if (u.id === winner.id) u.done = true;
@@ -411,7 +501,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       `).join('');
 
-      // 🚨 새로 생기는 당첨자 카드로 자동 스크롤 다운!
       setTimeout(() => {
         if (rankingScrollContainer) {
           rankingScrollContainer.scrollTop = rankingScrollContainer.scrollHeight;
@@ -434,7 +523,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 📋 팀 구성 명단 복사 핸들러 (• 1팀: 찰리, 클라우디...)
   btnCopyResultFormatted.addEventListener('click', () => {
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     if (mode === 'group' && lastGroupResult) {
