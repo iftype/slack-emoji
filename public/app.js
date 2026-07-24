@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Zero-Fail Guarantee v32.0.0)
+// Slack Meadow Main App Controller (Direct Roulette Spin v33.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pickedWinners = [];
   let lastGroupResult = null;
 
-  // 🛡️ 기본 테스트용 백업 유저 데이터 (서버 실패 시에도 100% 구동)
+  // 🛡️ 기본 백업 데이터
   const FALLBACK_USERS = [
     { id: 'usr_1', name: '재키(최재영)', real_name: '재키(최재영)', display_name: '재키(최재영)', avatar: 'https://ca.slack-edge.com/T000-U001-avatar.png' },
     { id: 'usr_2', name: '와이제리(최용준)', real_name: '와이제리(최용준)', display_name: '와이제리(최용준)', avatar: 'https://ca.slack-edge.com/T000-U002-avatar.png' },
@@ -308,7 +308,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    // 🛡️ 백업 데이터 추가
     if (uniqueUserMap.size === 0) {
       FALLBACK_USERS.forEach(u => uniqueUserMap.set(u.id, u));
     }
@@ -323,8 +322,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    if (bottomSheet) bottomSheet.classList.remove('collapsed');
-    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    runSingleLotterySpin();
   });
 
   // 🔍 슬랙 URL 분석 폼 전송
@@ -341,7 +339,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       resultSection?.classList.remove('hidden');
     } catch (err) {
       showError(err.message);
-      // 백업 렌더링
       renderAnalysisResult({
         user: FALLBACK_USERS[0],
         ts: Date.now() / 1000,
@@ -396,7 +393,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         emojiFilterChips.appendChild(chip);
       });
 
-      // 🎯 첫 번째 이모지 칩 자동 선택!
       if (reactions.length > 0) {
         updateSelectedEmojiDetail(reactions[0]);
       }
@@ -458,8 +454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    if (bottomSheet) bottomSheet.classList.remove('collapsed');
-    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    runSingleLotterySpin();
   });
 
   function updateSelectedEmojiDetail(reactionData) {
@@ -480,12 +475,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🚨 [초록색 "추첨하기" 버튼 -> 100% 무조건 명단 등록 후 슬라이드 2로 솟구쳐 이동!]
+  // 🚨 [초록색 "추첨하기" 버튼 -> 전전 버전(v30)처럼 즉시 명단 등록 + 룰렛 직행 구동!!]
   addToFeedbackBtn?.addEventListener('click', () => {
-    // 0.001초 선두 실행: 무조건 바텀시트 펼치고 슬라이드 2번 (추첨 모드 설정 & 명단 관리) 으로 전환!
-    if (bottomSheet) bottomSheet.classList.remove('collapsed');
-    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
-
     let targetUsers = [];
     let emojiName = 'check';
 
@@ -496,7 +487,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       targetUsers = currentAnalyzedMessage.reactions[0].users.map(normalizeUser);
       emojiName = currentAnalyzedMessage.reactions[0].name;
     } else {
-      // 🛡️ 백업 데이터 100% 자동 채택
       targetUsers = FALLBACK_USERS.map(normalizeUser);
     }
 
@@ -510,9 +500,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
+    
+    // 🔥 전전 버전처럼 즉시 룰렛 회전 개시!!
+    runSingleLotterySpin();
   });
 
-  // 🎮 [추첨 모드 선택: 1명 추첨 vs 팀/조 나누기]
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
   gameModeRadios.forEach(radio => {
     radio?.addEventListener('change', (e) => {
@@ -537,14 +529,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     runSingleLotterySpin();
   });
 
-  // 🚨 [추첨 / 조 짜기 개시 함수 - 100% Fail-Safe Guarantee]
+  // 🚨 [추첨 / 조 짜기 개시 함수]
   function runSingleLotterySpin() {
     if (bottomSheet) bottomSheet.classList.remove('collapsed');
 
     let activeRunners = getUniqueActiveRunners();
     
     if (activeRunners.length === 0) {
-      // 🛡️ 명단이 없을 경우 백업 명단 자동 주입!
       const group = {
         messageLink: 'Auto Group',
         messageText: '',
