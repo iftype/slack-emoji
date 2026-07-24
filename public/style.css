@@ -358,6 +358,17 @@ body {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
 }
 
+.roulette-reel-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  top: 53px;
+  left: 0;
+  will-change: transform;
+}
+
 .target-line-2d {
   position: absolute;
   top: 50%;

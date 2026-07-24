@@ -1,9 +1,8 @@
-// Slack Pick Studio Roulette Engine (Hardened Safe Deceleration & Reliable Spin)
+// Slack Pick Studio Roulette Engine (Target-Centered Reel Precision Engine)
 
 const LotteryEngine = {
   isRolling: false,
   CARD_HEIGHT: 54, // 카드 1개의 높이 (px)
-  lastTargetY: 0,  // 이전 회전에서 멈춘 Y축 위치
 
   // 1명씩 룰렛 감속 스냅 추첨 (Smooth Deceleration & Snap)
   pickSingleWinner(runners, elements, onComplete) {
@@ -36,13 +35,12 @@ const LotteryEngine = {
       reelList.push(...setRunners);
     }
 
-    // 최소 25개 이상으로 안전 보장
     while (reelList.length < 25) {
       runners.forEach(u => reelList.push(u));
     }
 
-    // 타깃 인덱스: 릴의 15번째~20번째 지점 카드로 정밀 지정
-    const targetIndex = Math.min(18, reelList.length - 4);
+    // 타깃 인덱스: 릴의 15번째 카드 위치
+    const targetIndex = Math.min(15, reelList.length - 4);
     reelList[targetIndex] = { ...winner, done: false };
 
     if (!rouletteReelContainer) return;
@@ -61,25 +59,24 @@ const LotteryEngine = {
       `;
     }).join('');
 
-    // 시작 포지션 준비 (0px 리셋 후 시작)
-    const startY = 0;
-    const targetY = -(targetIndex * this.CARD_HEIGHT) + 53;
+    // 시작 포지션 (0px에서 출발)
+    const targetY = -(targetIndex * this.CARD_HEIGHT);
 
     rouletteReelContainer.style.transition = 'none';
-    rouletteReelContainer.style.transform = `translateY(${startY}px)`;
+    rouletteReelContainer.style.transform = 'translateY(0px)';
 
-    // 강제 리플로우 후 감속 회전 실행
+    // 리플로우 후 감속 회전 실행
     void rouletteReelContainer.offsetHeight;
 
     setTimeout(() => {
-      rouletteReelContainer.style.transition = 'transform 2.2s cubic-bezier(0.1, 0.8, 0.3, 1)';
+      rouletteReelContainer.style.transition = 'transform 2.3s cubic-bezier(0.12, 0.82, 0.32, 1)';
       rouletteReelContainer.style.transform = `translateY(${targetY}px)`;
-    }, 40);
+    }, 30);
 
     const self = this;
     setTimeout(() => {
       self.finishSingleWinner(winner, targetIndex, elements, onComplete);
-    }, 2300);
+    }, 2400);
   },
 
   finishSingleWinner(winner, targetIndex, elements, onComplete) {
