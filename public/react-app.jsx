@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Target-Centered Reel Precision & Sync v44.0.0)
+// Slack Meadow - Complete React 18 Application Component (Last Winner Position Lock v46.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -181,9 +181,9 @@ function App() {
     return Array.from(runnerMap.values());
   };
 
-  // Preview Reel Update (Avoiding adjacent duplicate names)
+  // Preview Reel Update (🎯 당첨자가 지정되었을 때는 마지막 당첨자 카드가 그린 타깃 라인에 계속 고정!)
   useEffect(() => {
-    if (!isRolling) {
+    if (!isRolling && pickedWinners.length === 0) {
       const activeRunners = getUniqueActiveRunners();
       if (activeRunners.length === 0) {
         setReelCards([]);
@@ -203,7 +203,7 @@ function App() {
       setTransitionStyle('none');
       lastTargetYRef.current = 0;
     }
-  }, [feedbacks, isRolling]);
+  }, [feedbacks, isRolling, pickedWinners.length]);
 
   // Clipboard Paste Helper
   const handlePasteClipboard = async () => {
@@ -247,7 +247,7 @@ function App() {
     }
   };
 
-  // 🎯 요구사항 1: [추첨 명단에 추가 ➡️] 클릭 시 바텀시트 2단계 명단 확인 페이지로 넘어가 명단 확인 후 추첨하도록 제어!
+  // 🎯 [추첨 명단에 추가 ➡️] 클릭 시 바텀시트 2단계 명단 확인 페이지로 넘어가 명단 확인 후 추첨하도록 제어
   const handleAddToDrawList = () => {
     let targetUsers = [];
     let emojiName = 'check';
@@ -322,7 +322,7 @@ function App() {
     }, 50);
   };
 
-  // 🎯 요구사항 2: 룰렛 중복 이름 이격 배치 & 회전 감속 멈춤 100% 동기화 (Perfect Timing Sync)
+  // 🎰 Roulette / Group Dealer Spin Animation
   const runSingleLotterySpin = (feedbacksInput = null, keepSlide = false) => {
     const sourceFeedbacks = feedbacksInput || feedbacks;
     let activeRunners = getUniqueActiveRunners(sourceFeedbacks);
@@ -355,14 +355,13 @@ function App() {
       const winnerIndex = Math.floor(Math.random() * activeRunners.length);
       const winner = activeRunners[winnerIndex];
 
-      // 2. 인접 카드 중복 방지 엄격 릴 생성 (Strict Gap Spacing)
+      // 2. 인접 카드 중복 방지 엄격 릴 생성
       const REPEAT_COUNT = 15;
       let reelList = [];
       const baseCycle = [...allRunners].sort(() => Math.random() - 0.5);
 
       for (let r = 0; r < REPEAT_COUNT; r++) {
         baseCycle.forEach(u => {
-          // 최근 3개 카드 안에 동일 ID가 없도록 인접 중복 방지
           const recent3 = reelList.slice(-3);
           if (!recent3.some(item => item.id === u.id)) {
             reelList.push({ ...u });
@@ -378,7 +377,6 @@ function App() {
         });
       }
 
-      // 타깃 카드는 릴의 75% 지점에 정밀 매핑
       const targetIndex = Math.floor(reelList.length * 0.75);
       reelList[targetIndex] = { ...winner, done: false, isTarget: true };
 
@@ -386,12 +384,10 @@ function App() {
       setTransitionStyle('none');
       setReelY(lastTargetYRef.current);
 
-      // 3. 타깃 오프셋 좌표계 계산 (160px 중앙 53px 조준)
       const CARD_HEIGHT = 54;
       const newTargetY = -(targetIndex * CARD_HEIGHT) + 53;
       lastTargetYRef.current = newTargetY;
 
-      // 2.4s 정확한 감속 트랜지션 적용
       const SPIN_DURATION_MS = 2400;
 
       requestAnimationFrame(() => {
@@ -401,12 +397,11 @@ function App() {
         });
       });
 
-      // 4. 감속 멈춤 애니메이션이 끝나는 정확한 타이밍(2400ms)에 당첨 연출 및 상태 동기화!
+      // 🎯 멈춘 시점의 마지막 당첨자 포지션 및 하이라이트를 다음 회전 전까지 고정 유지!
       setTimeout(() => {
         setIsRolling(false);
         setCommentaryText(`🎉 [${getUserDisplayName(winner)}] 님 당첨!`);
         
-        // Target Card Highlight
         setReelCards(prev => prev.map((card, idx) => {
           if (idx === targetIndex) {
             return { ...card, isWinnerHighlight: true };
@@ -482,7 +477,7 @@ function App() {
     }
   };
 
-  // 🎯 요구사항 3: 확정 및 닫기가 아닌 🏠 홈으로 가기 핸들러
+  // 🎯 홈으로 가기 핸들러 (모든 상태 완전 리셋)
   const handleGoHome = () => {
     setPickedWinners([]);
     setGroupTeams(null);
@@ -493,6 +488,7 @@ function App() {
     setUnreactedUsers([]);
     setCurrentSlide(0);
     setBottomSheetCollapsed(false);
+    lastTargetYRef.current = 0;
   };
 
   const activeRunners = getUniqueActiveRunners();
@@ -885,7 +881,7 @@ function App() {
                           : '🎴 다시 조 짜기'}
                       </span>
                     </button>
-                    {/* 🎯 요구사항 3: 확정 및 닫기 전면 제거 후 🏠 홈으로 가기 버튼 전용 배치 */}
+                    {/* 🏠 홈으로 가기 버튼 전용 고정 */}
                     <button type="button" className="btn-secondary-outline" onClick={handleGoHome} style={{ margin: 0 }}>
                       🏠 홈으로 가기
                     </button>
