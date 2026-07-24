@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Direct Spin on Emoji Pick v30.0.0)
+// Slack Meadow Main App Controller (Full Feature Restoration v31.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -314,7 +314,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    runSingleLotterySpin();
+    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    bottomSheet?.classList.remove('collapsed');
   });
 
   // 🔍 슬랙 URL 분석 폼 전송
@@ -440,7 +441,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    runSingleLotterySpin();
+    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    bottomSheet?.classList.remove('collapsed');
   });
 
   function updateSelectedEmojiDetail(reactionData) {
@@ -461,7 +463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🚨 [초록색 "추첨하기" 버튼 클릭 시 -> 즉시 명단 등록 + 룰렛 직행 구동!!]
+  // 🚨 [초록색 "추첨하기" 버튼 -> 추첨기 대기 명단 등록 후 슬라이드 2 (🎮 추첨 모드 및 명단 관리) 로 이동!]
   addToFeedbackBtn?.addEventListener('click', () => {
     if (!currentAnalyzedMessage) return;
     
@@ -484,10 +486,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
     
-    // 🔥 곧바로 룰렛 추첨 개시!
-    runSingleLotterySpin();
+    // 🎯 바텀시트 펼치고 슬라이드 2 (추첨기 모드 설정 & 명단 관리창) 으로 이동!
+    if (bottomSheet) bottomSheet.classList.remove('collapsed');
+    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
 
+  // 🎮 [추첨 모드 선택: 1명 추첨 vs 팀/조 나누기]
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
   gameModeRadios.forEach(radio => {
     radio?.addEventListener('change', (e) => {
@@ -512,7 +516,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     runSingleLotterySpin();
   });
 
-  // 🚨 [추첨 시작 기능 - 무조건 1번 룰렛 무대로 이동하며 구르기]
+  // 🚨 [추첨 / 조 짜기 개시 함수]
   function runSingleLotterySpin() {
     if (bottomSheet) bottomSheet.classList.remove('collapsed');
 
@@ -560,6 +564,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showFinalResultView('podium', pickedWinners);
       });
     } else {
+      // 🎴 조 짜기 (팀 나누기) 모드 구동!!
       const teamCount = Math.min(parseInt(teamCountInput ? teamCountInput.value : 2) || 2, activeRunners.length);
       LotteryEngine.startGroupDealer(activeRunners, teamCount, elements, (m, teams) => {
         lastGroupResult = teams;
