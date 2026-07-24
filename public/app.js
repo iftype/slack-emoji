@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Zero-Alert & Fail-Safe DOM Engine v27.0.0)
+// Slack Meadow Main App Controller (Guaranteed Bottom-Sheet & List Render v29.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -56,7 +56,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const rankingRetryBtn = getEl('ranking-retry-btn');
   const btnCopyResultFormatted = getEl('btn-copy-result-formatted');
 
-  const selectAllEmojis = getEl('select-all-emojis');
   const deleteAllRunnersBtn = getEl('delete-all-runners-btn');
 
   const configPodium = getEl('config-podium');
@@ -89,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return shuffled;
   }
 
-  // 👤 유저 객체 100% 철통 정규화 헬퍼 (Crash 예방)
+  // 👤 유저 객체 100% 정규화 헬퍼
   function normalizeUser(u) {
     if (!u) return { id: 'unknown_' + Math.random(), name: '사용자', real_name: '사용자' };
     if (typeof u === 'string') return { id: u, name: u, real_name: u, display_name: u };
@@ -103,7 +102,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // 🚨 [방어막 헬퍼 함수]
   function getAllRunners() {
     const runnerMap = new Map();
     try {
@@ -198,14 +196,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
         const userList = (f.users || []).map(normalizeUser);
         html += `
-          <div class="feedback-group-item" style="background:#f8f9fa;border:1px solid #e4e5e7;border-radius:10px;padding:10px;margin-bottom:8px;">
-            <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
-              <span>${emojiBadge} (${userList.length}명)</span>
-              <button class="btn-danger-xs" data-idx="${fIdx}">삭제</button>
+          <div class="feedback-group-item" style="background:#ffffff;border:1.5px solid #6366f1;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 4px 12px rgba(99,102,241,0.08);">
+            <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;margin-bottom:8px;color:#1e293b;">
+              <span>${emojiBadge} <span style="color:#6366f1;">(${userList.length}명)</span></span>
+              <button class="btn-danger-xs" data-idx="${fIdx}" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">삭제</button>
             </div>
-            <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
+            <div class="group-users" style="display:flex;flex-wrap:wrap;gap:6px;">
               ${userList.map(u => `
-                <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${getUserDisplayName(u)}</span>
+                <span class="user-tag" style="font-size:12px;background:#f1f5f9;color:#334155;padding:3px 8px;border-radius:8px;border:1px solid #cbd5e1;font-weight:500;${u.done ? 'text-decoration:line-through;opacity:0.4;' : ''}">${getUserDisplayName(u)}</span>
               `).join('')}
             </div>
           </div>
@@ -286,9 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
       }
-    } catch (e) {
-      // clip read failed silently
-    }
+    } catch (e) {}
   });
 
   // 🌐 채널 전체 소환 버튼
@@ -460,15 +456,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (detailUserList) {
       detailUserList.innerHTML = shuffleArray(userList).map(u => `
         <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f7;padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
-          <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
+          <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="style="width:18px;height:18px;border-radius:50%;">
           <span>${getUserDisplayName(u)}</span>
         </div>
       `).join('');
     }
   }
 
-  // 🚨 [이모지 명단 추가 버튼 - alert 팝업 전면 제로화 및 슬라이더 이동]
+  // 🚨 [이모지 명단 추가 버튼 - 무조건 바텀시트 펼치고 2번 명단 슬라이드로 이동]
   addToFeedbackBtn?.addEventListener('click', () => {
+    // 무조건 바텀시트 펼치기 & 2번 명단 슬라이드로 전환
+    if (bottomSheet) bottomSheet.classList.remove('collapsed');
+    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+
     if (!currentAnalyzedMessage) return;
     
     if (!activeEmojiGroup && currentAnalyzedMessage.reactions && currentAnalyzedMessage.reactions.length > 0) {
@@ -489,10 +489,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    
-    // 명단 슬라이드 2 (translateX(-33.333%)) 로 시원하게 이동 및 바텀시트 펼치기!
-    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
-    bottomSheet?.classList.remove('collapsed');
   });
 
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
@@ -519,8 +515,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     runSingleLotterySpin();
   });
 
-  // 🚨 [추첨 시작 기능]
+  // 🚨 [추첨 시작 기능 - 무조건 1번 룰렛 슬라이드로 이동]
   function runSingleLotterySpin() {
+    if (bottomSheet) bottomSheet.classList.remove('collapsed');
+
     let activeRunners = getUniqueActiveRunners();
     
     if (activeRunners.length === 0 && currentAnalyzedMessage) {
@@ -541,7 +539,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (activeRunners.length === 0) return;
 
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(0%)';
-    if (bottomSheet) bottomSheet.classList.remove('collapsed');
 
     const allRunners = getAllRunners();
     const modeRadio = document.querySelector('input[name="game-mode"]:checked');
