@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Direct Roulette Spin v33.0.0)
+// Slack Meadow Main App Controller (Strict 3-Step Workflow v34.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pickedWinners = [];
   let lastGroupResult = null;
 
-  // 🛡️ 기본 백업 데이터
+  // 🛡️ 기본 백업 유저 데이터
   const FALLBACK_USERS = [
     { id: 'usr_1', name: '재키(최재영)', real_name: '재키(최재영)', display_name: '재키(최재영)', avatar: 'https://ca.slack-edge.com/T000-U001-avatar.png' },
     { id: 'usr_2', name: '와이제리(최용준)', real_name: '와이제리(최용준)', display_name: '와이제리(최용준)', avatar: 'https://ca.slack-edge.com/T000-U002-avatar.png' },
@@ -322,7 +322,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    runSingleLotterySpin();
+    if (bottomSheet) bottomSheet.classList.remove('collapsed');
+    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
 
   // 🔍 슬랙 URL 분석 폼 전송
@@ -454,7 +455,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
-    runSingleLotterySpin();
+    if (bottomSheet) bottomSheet.classList.remove('collapsed');
+    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
 
   function updateSelectedEmojiDetail(reactionData) {
@@ -475,7 +477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 🚨 [초록색 "추첨하기" 버튼 -> 전전 버전(v30)처럼 즉시 명단 등록 + 룰렛 직행 구동!!]
+  // 🚨 [초록색 "추첨하기" 버튼 클릭 시 -> 추첨 명단 등록 후 2단계 (🎮 추첨 모드 설정 & 명단 관리창) 로 이동!]
   addToFeedbackBtn?.addEventListener('click', () => {
     let targetUsers = [];
     let emojiName = 'check';
@@ -501,8 +503,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentFeedbacksData.push(group);
     renderFeedbackList(currentFeedbacksData);
     
-    // 🔥 전전 버전처럼 즉시 룰렛 회전 개시!!
-    runSingleLotterySpin();
+    // 🎯 바텀시트 펼치고 2단계 (🎮 추첨 모드 및 소환 명단 관리창) 으로 시원하게 이동!
+    if (bottomSheet) bottomSheet.classList.remove('collapsed');
+    if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
   });
 
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
