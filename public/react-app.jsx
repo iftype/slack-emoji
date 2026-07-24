@@ -26,17 +26,25 @@ function renderEmojiIcon(name, customCache = {}) {
   return `<span class="custom-emoji-pill" style="background:#e0e7ff;color:#4338ca;padding:2px 6px;border-radius:6px;font-size:11px;font-weight:700;display:inline-block;vertical-align:middle;line-height:1.2;">:${cleanName}:</span>`;
 }
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function parseTextEmojis(text, customCache = {}) {
   if (!text) return '';
   let parsed = text;
   Object.keys(customCache).forEach(name => {
     const cleanName = name.replace(/^:+|:+$/g, '').toLowerCase();
-    const regex = new RegExp(`:${cleanName}:`, 'gi');
-    parsed = parsed.replace(regex, `<img src="${customCache[name]}" alt=":${cleanName}:" class="custom-emoji-img" style="width:20px;height:20px;vertical-align:middle;border-radius:4px;display:inline-block;">`);
+    try {
+      const regex = new RegExp(`:${escapeRegex(cleanName)}:`, 'gi');
+      parsed = parsed.replace(regex, `<img src="${customCache[name]}" alt=":${cleanName}:" class="custom-emoji-img" style="width:20px;height:20px;vertical-align:middle;border-radius:4px;display:inline-block;">`);
+    } catch (e) {}
   });
   Object.keys(EMOJI_MAP).forEach(name => {
-    const regex = new RegExp(`:${name}:`, 'gi');
-    parsed = parsed.replace(regex, EMOJI_MAP[name]);
+    try {
+      const regex = new RegExp(`:${escapeRegex(name)}:`, 'gi');
+      parsed = parsed.replace(regex, EMOJI_MAP[name]);
+    } catch (e) {}
   });
   return parsed;
 }
