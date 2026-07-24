@@ -37,10 +37,11 @@ const LotteryEngine = {
     // 슬롯 릴 HTML 바인딩
     rouletteReelContainer.innerHTML = reelList.map((u, idx) => {
       const isTarget = (idx === targetIndex);
+      const displayName = getUserDisplayName(u);
       return `
         <div class="picker-card-2d ${isTarget ? 'target-winner-card' : ''}" data-index="${idx}">
           <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-          <span class="card-name">${u.real_name || u.name}</span>
+          <span class="card-name">${displayName}</span>
         </div>
       `;
     }).join('');
@@ -50,7 +51,6 @@ const LotteryEngine = {
     rouletteReelContainer.style.transform = 'translateY(0px)';
 
     // 타깃 오프셋 계산 (타깃 카드가 룰렛 창 160px 중앙 53px 지점에 오도록)
-    // 룰렛 창 높이 160px, 카드 높이 약 54px -> (160 - 54)/2 = 53px 오프셋
     const targetY = -(targetIndex * this.CARD_HEIGHT) + 53;
 
     // 강제 리플로우 후 감속 애니메이션 적용 (chzzk-vote easeOut cubic-bezier)
@@ -68,9 +68,10 @@ const LotteryEngine = {
 
   finishSingleWinner(winner, targetIndex, elements, onComplete) {
     this.isRolling = false;
+    const winnerDisplayName = getUserDisplayName(winner);
     
     const { rouletteReelContainer, commentaryText } = elements;
-    commentaryText.textContent = `🎉 [${winner.real_name || winner.name}] 님 당첨!`;
+    commentaryText.textContent = `🎉 [${winnerDisplayName}] 님 당첨!`;
 
     // 🎯 멈춘 위치의 타깃 카드를 highlight 효과로 밝게 표시!
     const targetElement = rouletteReelContainer.querySelector(`[data-index="${targetIndex}"]`);
@@ -78,7 +79,7 @@ const LotteryEngine = {
       targetElement.classList.add('winner-highlight');
       const nameEl = targetElement.querySelector('.card-name');
       if (nameEl && !nameEl.textContent.includes('🎉')) {
-        nameEl.textContent = `🎉 ${winner.real_name || winner.name}`;
+        nameEl.textContent = `🎉 ${winnerDisplayName}`;
       }
     }
 
@@ -107,7 +108,7 @@ const LotteryEngine = {
       <div class="group-team-box">
         <div class="team-title"><span>TEAM ${tIdx + 1}</span> <span>${team.length}명</span></div>
         <div class="team-members" style="display:flex;flex-wrap:wrap;gap:4px;">
-          ${team.map(m => `<span class="group-member-pill">${m.real_name || m.name}</span>`).join('')}
+          ${team.map(m => `<span class="group-member-pill">${getUserDisplayName(m)}</span>`).join('')}
         </div>
       </div>
     `).join('');

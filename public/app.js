@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderAnalysisResult(msg) {
     messageAvatar.src = msg.user.avatar || 'https://via.placeholder.com/40';
-    messageAuthor.textContent = msg.user.real_name || msg.user.name;
+    messageAuthor.textContent = getUserDisplayName(msg.user);
 
     if (msg.ts) {
       const dateObj = new Date(parseFloat(msg.ts) * 1000);
@@ -254,11 +254,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     users.forEach(u => {
+      const displayName = getUserDisplayName(u);
       const item = document.createElement('div');
       item.className = 'unreacted-user-item';
       item.innerHTML = `
-        <img src="${u.avatar || 'https://via.placeholder.com/22'}" alt="${u.real_name}">
-        <span>${u.real_name || u.name}</span>
+        <img src="${u.avatar || 'https://via.placeholder.com/22'}" alt="${displayName}">
+        <span>${displayName}</span>
       `;
       unreactedUserList.appendChild(item);
     });
@@ -280,7 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnCopyUnreacted.addEventListener('click', () => {
     if (currentUnreactedUsers.length === 0) return;
-    const names = currentUnreactedUsers.map(u => u.real_name || u.name).join(' ');
+    const names = currentUnreactedUsers.map(u => getUserDisplayName(u)).join(' ');
     navigator.clipboard.writeText(names);
     alert(`미반응자 ${currentUnreactedUsers.length}명의 이름이 복사되었습니다!`);
   });
@@ -302,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     detailUserList.innerHTML = shuffleArray(reactionData.users).map(u => `
       <div class="user-chip" style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f7;padding:3px 8px;border-radius:12px;margin:2px;font-size:12px;">
         <img src="${u.avatar || 'https://via.placeholder.com/20'}" style="width:18px;height:18px;border-radius:50%;">
-        <span>${u.real_name || u.name}</span>
+        <span>${getUserDisplayName(u)}</span>
       </div>
     `).join('');
   }
@@ -357,7 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
           <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
             ${f.users.map(u => `
-              <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${u.real_name || u.name}</span>
+              <span class="user-tag" style="font-size:11px;background:#ffffff;padding:2px 6px;border-radius:6px;border:1px solid #e4e5e7;${u.done ? 'text-decoration:line-through;opacity:0.5;' : ''}">${getUserDisplayName(u)}</span>
             `).join('')}
           </div>
         </div>
@@ -402,7 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     rouletteReelContainer.innerHTML = cyclicRunners.map(u => `
       <div class="picker-card-2d">
         <img src="${u.avatar || 'https://via.placeholder.com/32'}" class="card-avatar">
-        <span class="card-name">${u.real_name || u.name}</span>
+        <span class="card-name">${getUserDisplayName(u)}</span>
       </div>
     `).join('');
   }
@@ -488,7 +489,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span class="winner-rank-badge">${idx + 1}등</span>
           <img src="${w.avatar || 'https://via.placeholder.com/44'}" class="winner-avatar">
           <div class="winner-info">
-            <div class="name">${w.real_name || w.name}</div>
+            <div class="name">${getUserDisplayName(w)}</div>
             <div style="font-size:12px;color:#64748b;">🎉 축하합니다! (자동 중복제외 적용)</div>
           </div>
         </div>
@@ -510,7 +511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="panel-card" style="text-align:left;margin-bottom:8px;">
           <h4 style="color:var(--primary);margin-bottom:6px;">TEAM ${tIdx + 1} (${team.length}명)</h4>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            ${team.map(m => `<span class="group-member-pill">${m.real_name || m.name}</span>`).join('')}
+            ${team.map(m => `<span class="group-member-pill">${getUserDisplayName(m)}</span>`).join('')}
           </div>
         </div>
       `).join('');
@@ -522,14 +523,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mode = document.querySelector('input[name="game-mode"]:checked').value;
     if (mode === 'group' && lastGroupResult) {
       const lines = lastGroupResult.map((team, idx) => {
-        const names = team.map(m => m.real_name || m.name).join(', ');
+        const names = team.map(m => getUserDisplayName(m)).join(', ');
         return `• ${idx + 1}팀: ${names}`;
       });
       const copyText = lines.join('\n');
       navigator.clipboard.writeText(copyText);
       alert('팀 구성 명단이 클립보드에 복사되었습니다!\n\n' + copyText);
     } else if (pickedWinners.length > 0) {
-      const copyText = pickedWinners.map((w, idx) => `${idx + 1}등: ${w.real_name || w.name}`).join('\n');
+      const copyText = pickedWinners.map((w, idx) => `${idx + 1}등: ${getUserDisplayName(w)}`).join('\n');
       navigator.clipboard.writeText(copyText);
       alert('당첨자 명단이 클립보드에 복사되었습니다!');
     }
@@ -608,7 +609,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     analysisTotalCount.textContent = `총 ${userMap.size}명`;
     analysisUserList.innerHTML = Array.from(userMap.values()).map(item => `
       <div class="user-analysis-item" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
-        <span style="font-size:12px;font-weight:600;">${item.user.real_name || item.user.name}</span>
+        <span style="font-size:12px;font-weight:600;">${getUserDisplayName(item.user)}</span>
         <span>${item.emojis.map(e => renderEmojiIcon(e, customEmojiCache)).join(' ')}</span>
       </div>
     `).join('');
@@ -621,7 +622,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnCopySpacedNames.addEventListener('click', () => {
     const runners = getUniqueActiveRunners();
     if (runners.length === 0) return;
-    const names = runners.map(u => u.real_name || u.name).join(' ');
+    const names = runners.map(u => getUserDisplayName(u)).join(' ');
     navigator.clipboard.writeText(names);
     alert(`명단 ${runners.length}명의 이름이 복사되었습니다!`);
   });

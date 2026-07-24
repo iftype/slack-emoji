@@ -45,3 +45,9 @@ function renderEmojiIcon(name, customEmojiCache = {}) {
   }
   return `:${name}:`;
 }
+
+// 👤 슬랙 유저 닉네임 1순위 반환 헬퍼 (채널 닉네임 display_name > real_name > name)
+function getUserDisplayName(u) {
+  if (!u) return '';
+  return u.display_name || u.real_name || u.name || '사용자';
+}
