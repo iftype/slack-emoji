@@ -1,4 +1,4 @@
-// Slack Pick Studio Roulette Engine (Fixed Stationary Reel & Strict Separation)
+// Slack Pick Studio Roulette Engine (Hardened Safe Deceleration & Reliable Spin)
 
 const LotteryEngine = {
   isRolling: false,
@@ -9,13 +9,8 @@ const LotteryEngine = {
   pickSingleWinner(runners, elements, onComplete) {
     if (!runners || runners.length === 0) return;
 
-    // 강제 락 방지 (3.5초 안전 타이머)
-    if (this.isRolling) {
-      console.warn('Roulette is already rolling, forcing state reset for next spin.');
-      this.isRolling = false;
-    }
-    
-    // 아직 당첨되지 않은 순수 남아있는 미당첨 유저만 필터링!
+    this.isRolling = false; // 락 강제 해제
+
     const activeRunners = runners.filter(u => !u.done);
     if (activeRunners.length === 0) {
       alert('추첨할 남은 유저가 없습니다! 🎉');
@@ -24,43 +19,35 @@ const LotteryEngine = {
 
     this.isRolling = true;
     const { rouletteReelContainer, raceCommentary, commentaryText } = elements;
-    raceCommentary.classList.remove('hidden');
-    commentaryText.textContent = '🎰 룰렛 돌리는 중... 틱틱틱!';
+    
+    if (raceCommentary) raceCommentary.classList.remove('hidden');
+    if (commentaryText) commentaryText.textContent = '🎰 룰렛 돌리는 중... 틱틱틱!';
 
-    // 1. 아직 미당첨된 유저 중 무작위 1명 당첨자 선정
+    // 1. 무작위 1명 당첨자 선정
     const winnerIndex = Math.floor(Math.random() * activeRunners.length);
     const winner = activeRunners[winnerIndex];
 
-    // 2. 동일 이름이 화면(3카드 노출) 내에 2번 겹쳐 보이지 않도록 엄격한 간격 유지 릴 조립
-    const REPEAT_COUNT = 15;
+    // 2. 꼬리물기 릴 명단 구축 (10 세트 반복)
+    const REPEAT_COUNT = 10;
     let reelList = [];
     
-    // 셔플된 단일 명단 기반으로 순환 배치
-    const baseCycle = [...runners].sort(() => Math.random() - 0.5);
-
     for (let r = 0; r < REPEAT_COUNT; r++) {
-      baseCycle.forEach(u => {
-        // 최근 3개 카드 안에 동일한 ID가 등장하면 건너뜀 (중복 노출 방지!)
-        const recent3 = reelList.slice(-3);
-        if (!recent3.some(item => item.id === u.id)) {
-          reelList.push(u);
-        }
-      });
+      const setRunners = [...runners].sort(() => Math.random() - 0.5);
+      reelList.push(...setRunners);
     }
 
-    // 명단 수가 적어 reelList가 부족할 경우 최소한의 기본 순환 채우기
-    while (reelList.length < 30) {
+    // 최소 25개 이상으로 안전 보장
+    while (reelList.length < 25) {
       runners.forEach(u => reelList.push(u));
     }
 
-    // Target 인덱스: 릴의 80% 지점에 위치한 당첨자 카드로 타깃팅
-    const targetSetIndex = Math.floor(reelList.length * 0.75);
-    const targetIndex = targetSetIndex;
-    
-    // 타깃 위치에 당첨자 카드 강제 바인딩 (미당첨 상태)
+    // 타깃 인덱스: 릴의 15번째~20번째 지점 카드로 정밀 지정
+    const targetIndex = Math.min(18, reelList.length - 4);
     reelList[targetIndex] = { ...winner, done: false };
 
-    // 슬롯 릴 HTML 바인딩 (당첨자는 이름 빼지 말고 회색 취소선 딤드 표기!)
+    if (!rouletteReelContainer) return;
+
+    // 슬롯 릴 HTML 바인딩
     rouletteReelContainer.innerHTML = reelList.map((u, idx) => {
       const isTarget = (idx === targetIndex);
       const isDone = u.done && !isTarget;
@@ -74,27 +61,25 @@ const LotteryEngine = {
       `;
     }).join('');
 
-    // 이전 당첨자 위치(lastTargetY)에서부터 자연스럽게 다음 회전 시작!
+    // 시작 포지션 준비 (0px 리셋 후 시작)
+    const startY = 0;
+    const targetY = -(targetIndex * this.CARD_HEIGHT) + 53;
+
     rouletteReelContainer.style.transition = 'none';
-    rouletteReelContainer.style.transform = `translateY(${this.lastTargetY}px)`;
+    rouletteReelContainer.style.transform = `translateY(${startY}px)`;
 
-    // 타깃 오프셋 계산 (타깃 카드가 룰렛 창 160px 중앙 53px 지점에 오도록)
-    const newTargetY = -(targetIndex * this.CARD_HEIGHT) + 53;
-    this.lastTargetY = newTargetY;
+    // 강제 리플로우 후 감속 회전 실행
+    void rouletteReelContainer.offsetHeight;
 
-    // 강제 리플로우 후 감속 회전 적용
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        rouletteReelContainer.style.transition = 'transform 2.6s cubic-bezier(0.12, 0.82, 0.32, 1)';
-        rouletteReelContainer.style.transform = `translateY(${newTargetY}px)`;
-      });
-    });
+    setTimeout(() => {
+      rouletteReelContainer.style.transition = 'transform 2.2s cubic-bezier(0.1, 0.8, 0.3, 1)';
+      rouletteReelContainer.style.transform = `translateY(${targetY}px)`;
+    }, 40);
 
     const self = this;
-    // 안전 타임아웃
     setTimeout(() => {
       self.finishSingleWinner(winner, targetIndex, elements, onComplete);
-    }, 2700);
+    }, 2300);
   },
 
   finishSingleWinner(winner, targetIndex, elements, onComplete) {
@@ -102,16 +87,17 @@ const LotteryEngine = {
     const winnerDisplayName = getUserDisplayName(winner);
     
     const { rouletteReelContainer, commentaryText } = elements;
-    commentaryText.textContent = `🎉 [${winnerDisplayName}] 님 당첨!`;
+    if (commentaryText) commentaryText.textContent = `🎉 [${winnerDisplayName}] 님 당첨!`;
 
-    // 🎯 멈춘 위치의 타깃 카드를 highlight 효과로 밝게 표시!
-    const targetElement = rouletteReelContainer.querySelector(`[data-index="${targetIndex}"]`);
-    if (targetElement) {
-      targetElement.classList.remove('done-runner-card');
-      targetElement.classList.add('winner-highlight');
-      const nameEl = targetElement.querySelector('.card-name');
-      if (nameEl && !nameEl.textContent.includes('🎉')) {
-        nameEl.textContent = `🎉 ${winnerDisplayName}`;
+    if (rouletteReelContainer) {
+      const targetElement = rouletteReelContainer.querySelector(`[data-index="${targetIndex}"]`);
+      if (targetElement) {
+        targetElement.classList.remove('done-runner-card');
+        targetElement.classList.add('winner-highlight');
+        const nameEl = targetElement.querySelector('.card-name');
+        if (nameEl && !nameEl.textContent.includes('🎉')) {
+          nameEl.textContent = `🎉 ${winnerDisplayName}`;
+        }
       }
     }
 
@@ -125,8 +111,8 @@ const LotteryEngine = {
     this.isRolling = false;
 
     const { groupBoxesGrid, raceCommentary, commentaryText } = elements;
-    raceCommentary.classList.remove('hidden');
-    commentaryText.textContent = '👥 무작위 조 구성 중...';
+    if (raceCommentary) raceCommentary.classList.remove('hidden');
+    if (commentaryText) commentaryText.textContent = '👥 무작위 조 구성 중...';
 
     const shuffled = [...runners].sort(() => Math.random() - 0.5);
     const teams = Array.from({ length: teamCount }, () => []);
@@ -135,14 +121,16 @@ const LotteryEngine = {
       teams[idx % teamCount].push(runner);
     });
 
-    groupBoxesGrid.innerHTML = teams.map((team, tIdx) => `
-      <div class="group-team-box">
-        <div class="team-title"><span>TEAM ${tIdx + 1}</span> <span>${team.length}명</span></div>
-        <div class="team-members" style="display:flex;flex-wrap:wrap;gap:4px;">
-          ${team.map(m => `<span class="group-member-pill">${getUserDisplayName(m)}</span>`).join('')}
+    if (groupBoxesGrid) {
+      groupBoxesGrid.innerHTML = teams.map((team, tIdx) => `
+        <div class="group-team-box">
+          <div class="team-title"><span>TEAM ${tIdx + 1}</span> <span>${team.length}명</span></div>
+          <div class="team-members" style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${team.map(m => `<span class="group-member-pill">${getUserDisplayName(m)}</span>`).join('')}
+          </div>
         </div>
-      </div>
-    `).join('');
+      `).join('');
+    }
 
     const self = this;
     setTimeout(() => {
