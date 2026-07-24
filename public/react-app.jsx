@@ -1,4 +1,4 @@
-// Slack Meadow - Complete React 18 Application Component (Robust API Routing & Vercel Integration v70.0.0)
+// Slack Meadow - Complete React 18 Application Component (Dual Server Fallback API v72.0.0)
 
 const { useState, useEffect, useRef } = React;
 
@@ -165,32 +165,67 @@ function buildCleanReelList(runners, winner, targetIndex = 18) {
   return reel;
 }
 
-// 2. API Communication Service (Vercel & Local Dynamic Binding)
+// 2. API Communication Service (Vercel + Live EC2 Fail-safe Proxy)
 const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:3001'
-  : (window.location.hostname.includes('github.io') ? 'https://slack-emoji-xi.vercel.app' : '');
+  : '';
+
+const EC2_FALLBACK_BASE = 'https://iftype.store/slack';
 
 const SlackApi = {
   async fetchCustomEmojis() {
     try {
       const res = await fetch(`${API_BASE}/api/emojis`);
-      if (!res.ok) return {};
-      const data = await res.json();
-      return (data.ok && (data.emojis || data.emoji)) ? (data.emojis || data.emoji) : {};
-    } catch (e) {
-      return {};
-    }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok && (data.emojis || data.emoji)) return (data.emojis || data.emoji);
+      }
+    } catch (e) {}
+
+    // EC2 백엔드 자동 폴백
+    try {
+      const fallbackRes = await fetch(`${EC2_FALLBACK_BASE}/api/emojis`);
+      if (fallbackRes.ok) {
+        const data = await fallbackRes.json();
+        if (data.ok && (data.emojis || data.emoji)) return (data.emojis || data.emoji);
+      }
+    } catch (e) {}
+
+    return {};
   },
 
   async analyzeSlackUrl(url) {
-    const res = await fetch(`${API_BASE}/api/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || '슬랙 메시지를 분석할 수 없습니다.');
-    return data;
+    let lastErrorMsg = '슬랙 메시지를 가져올 수 없습니다.';
+
+    // 1차 시도: Vercel 또는 로컬 서버 엔드포인트
+    try {
+      const res = await fetch(`${API_BASE}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) return data;
+      if (data && data.error) lastErrorMsg = data.error;
+    } catch (e) {
+      if (e && e.message) lastErrorMsg = e.message;
+    }
+
+    // 2차 시도: EC2 라이브 백엔드 서버로 자동 폴백 (SLACK_TOKEN 완비)
+    try {
+      const fallbackRes = await fetch(`${EC2_FALLBACK_BASE}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const fallbackData = await fallbackRes.json();
+      if (fallbackRes.ok && fallbackData.ok) return fallbackData;
+      if (fallbackData && fallbackData.error) lastErrorMsg = fallbackData.error;
+    } catch (e) {
+      if (e && e.message) lastErrorMsg = e.message;
+    }
+
+    throw new Error(lastErrorMsg);
   }
 };
 
@@ -379,8 +414,7 @@ function App() {
         setActiveEmojiGroup(msg.reactions[0]);
       }
     } catch (err) {
-      // 🛡️ API 통신 실패 시 오류 안내와 함께 샘플 데이터로 안전 폴백
-      setStatusMsg(`⚠️ ${err.message} (샘플 데이터 모드로 동작합니다)`);
+      setStatusMsg(`⚠️ ${err.message} (샘플 데이터 모드로 전환되었습니다)`);
       const fallbackMsg = {
         user: FALLBACK_USERS[0],
         ts: Date.now() / 1000,
