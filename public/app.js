@@ -1,4 +1,4 @@
-// Slack Meadow Main App Controller (Null-Safe Hardened Version v19.0.0)
+// Slack Meadow Main App Controller (Hardened Local-Fallback Version v20.0.0)
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Safe Helper
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return shuffled;
   }
 
-  // 🚨 [핵심 헬퍼 함수 최상단 배치 - Null Safe]
+  // 🚨 [핵심 헬퍼 함수 - Null Safe]
   function getAllRunners() {
     const runnerMap = new Map();
     (currentFeedbacksData || []).forEach(f => {
@@ -169,13 +169,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderRoulettePreview(uniqueRunners);
 
     let html = '';
-    currentFeedbacksData.forEach(f => {
+    currentFeedbacksData.forEach((f, fIdx) => {
       const emojiBadge = renderEmojiIcon(f.emoji, customEmojiCache);
       html += `
         <div class="feedback-group-item" style="background:#f8f9fa;border:1px solid #e4e5e7;border-radius:10px;padding:10px;margin-bottom:8px;">
           <div class="group-title" style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px;">
             <span>${emojiBadge} (${f.users ? f.users.length : 0}명)</span>
-            <button class="btn-danger-xs" data-link="${f.messageLink}" data-emoji="${f.emoji}">삭제</button>
+            <button class="btn-danger-xs" data-idx="${fIdx}" data-link="${f.messageLink}" data-emoji="${f.emoji}">삭제</button>
           </div>
           <div class="group-users" style="display:flex;flex-wrap:wrap;gap:4px;">
             ${(f.users || []).map(u => `
@@ -189,10 +189,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     container.querySelectorAll('.btn-danger-xs').forEach(btn => {
       btn?.addEventListener('click', async (e) => {
-        const link = e.target.dataset.link;
-        const emoji = e.target.dataset.emoji;
-        const updated = await SlackApi.deleteFeedbackGroup(link, emoji);
-        renderFeedbackList(updated);
+        const idx = parseInt(e.target.dataset.idx);
+        if (!isNaN(idx)) {
+          currentFeedbacksData.splice(idx, 1);
+          renderFeedbackList(currentFeedbacksData);
+        }
       });
     });
   }
@@ -207,7 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderRoulettePreview([]);
   }
 
-  // 🛡️ Safe Stepper Controls
+  // Stepper Controls
   const btnWinnerMinus = getEl('btn-winner-minus');
   const btnWinnerPlus = getEl('btn-winner-plus');
   const btnTeamMinus = getEl('btn-team-minus');
@@ -261,6 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // 🌐 채널 전체 소환 버튼 (네트워크 예외 방어 & 무조건 즉시 추가!)
   btnSummonChannelAll?.addEventListener('click', async () => {
     if (!currentAnalyzedMessage || !currentAnalyzedMessage.channel) {
       alert('슬랙 링크를 먼저 분석해주시거나 채널 정보가 필요합니다!');
@@ -282,13 +284,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const updated = await SlackApi.saveFeedbackGroup(
-      slackUrlInput ? slackUrlInput.value.trim() : '', 
-      '', 
-      `🌐 채널 전체 (${uniqueChannelUsers.length}명)`, 
-      uniqueChannelUsers
-    );
-    renderFeedbackList(updated);
+    const group = {
+      messageLink: slackUrlInput ? slackUrlInput.value.trim() : 'Channel Group',
+      messageText: '',
+      emoji: `🌐 채널 전체 (${uniqueChannelUsers.length}명)`,
+      users: uniqueChannelUsers
+    };
+
+    currentFeedbacksData.push(group);
+    renderFeedbackList(currentFeedbacksData);
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
     bottomSheet?.classList.remove('collapsed');
   });
@@ -399,12 +403,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     alert(`미반응자 ${currentUnreactedUsers.length}명의 이름이 복사되었습니다!`);
   });
 
-  btnSummonUnreacted?.addEventListener('click', async () => {
-    if (currentUnreactedUsers.length === 0) return;
+  // 🚨 [이모지 미반응자 추첨 추가 버튼 100% 정상 작동 방어 코드]
+  btnSummonUnreacted?.addEventListener('click', () => {
+    if (!currentUnreactedUsers || currentUnreactedUsers.length === 0) {
+      alert('추첨에 추가할 미반응자 유저가 없습니다!');
+      return;
+    }
     const shuffled = shuffleArray(currentUnreactedUsers);
-    const updated = await SlackApi.saveFeedbackGroup(slackUrlInput ? slackUrlInput.value.trim() : '', '', '🚨 이모지 미반응자', shuffled);
-    renderFeedbackList(updated);
+    const group = {
+      messageLink: slackUrlInput ? slackUrlInput.value.trim() : 'Unreacted Group',
+      messageText: '',
+      emoji: '🚨 이모지 미반응자',
+      users: shuffled
+    };
+    currentFeedbacksData.push(group);
+    renderFeedbackList(currentFeedbacksData);
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    bottomSheet?.classList.remove('collapsed');
   });
 
   function updateSelectedEmojiDetail(reactionData) {
@@ -424,17 +439,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  addToFeedbackBtn?.addEventListener('click', async () => {
+  // 🚨 [추첨 명단 추가 버튼 100% 정상 작동 방어 코드]
+  addToFeedbackBtn?.addEventListener('click', () => {
     if (!currentAnalyzedMessage || !activeEmojiGroup) return;
     const shuffledUsers = shuffleArray(activeEmojiGroup.users);
-    const updated = await SlackApi.saveFeedbackGroup(
-      slackUrlInput ? slackUrlInput.value.trim() : '',
-      currentAnalyzedMessage.text,
-      activeEmojiGroup.name,
-      shuffledUsers
-    );
-    renderFeedbackList(updated);
+    const group = {
+      messageLink: slackUrlInput ? slackUrlInput.value.trim() : 'Emoji Group',
+      messageText: currentAnalyzedMessage.text || '',
+      emoji: activeEmojiGroup.name,
+      users: shuffledUsers
+    };
+    currentFeedbacksData.push(group);
+    renderFeedbackList(currentFeedbacksData);
     if (sliderWrapper) sliderWrapper.style.transform = 'translateX(-33.333%)';
+    bottomSheet?.classList.remove('collapsed');
   });
 
   const gameModeRadios = document.querySelectorAll('input[name="game-mode"]');
@@ -472,6 +490,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const modeRadio = document.querySelector('input[name="game-mode"]:checked');
     const mode = modeRadio ? modeRadio.value : 'podium';
     const elements = { rouletteReelContainer, groupBoxesGrid, raceCommentary, commentaryText };
+
+    // 🚨 룰렛 돌리기 전 강제 락 해제
+    LotteryEngine.isRolling = false;
 
     if (mode === 'podium') {
       LotteryEngine.pickSingleWinner(allRunners, elements, (winner) => {
@@ -610,9 +631,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   deleteAllRunnersBtn?.addEventListener('click', async () => {
     if (confirm('소환된 명단을 모두 삭제하시겠습니까?')) {
       pickedWinners = [];
-      for (const f of [...currentFeedbacksData]) {
-        await SlackApi.deleteFeedbackGroup(f.messageLink, f.emoji);
-      }
       currentFeedbacksData = [];
       renderFeedbackList([]);
       renderRoulettePreview([]);
